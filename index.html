@@ -249,6 +249,8 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 /* 시크릿·마스터 카드 */
 .secret{justify-items:center}
 .secret-cell{width:min(240px,70%)!important}
+.card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:100%}
+.card-cell svg{max-width:none!important;width:100%;filter:drop-shadow(0 4px 0 #0003)}
 .secret-cell svg,.master-big svg,.reveal .master-card svg,.master-pack svg{max-width:none;width:100%;filter:drop-shadow(0 6px 0 #0003)}
 .master-big{width:min(280px,72vw)!important}
 .reveal .pack.master-pack{all:unset;cursor:pointer;width:min(220px,58vw);animation:wiggle .45s ease-in-out infinite}

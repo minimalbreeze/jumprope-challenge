@@ -588,10 +588,53 @@ ${secret ? `<text x="${cx}" y="${cy + 22}" text-anchor="middle" font-family="${f
 <rect x="34" y="320" width="232" height="70" rx="12" fill="${secret ? "#2a3042" : "#fffdf5"}" stroke="${secret ? "#5b6478" : "url(#" + uid + "au)"}" stroke-width="3"/>
 ${secret
       ? `<text x="150" y="350" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">씰 30장을 모두 모으면</text><text x="150" y="372" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">이 카드가 열려요</text>`
-      : `<text x="150" y="352" text-anchor="middle" font-family="${font}" font-size="24" fill="#2d3f73">${esc(info.nick)}</text><text x="150" y="376" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6b7290">#${esc(info.id || "----")} · ${esc(info.date || "")} 발급</text>`}
+      : `<text x="150" y="352" text-anchor="middle" font-family="${font}" font-size="24" fill="#2d3f73">${esc(info.nick)}</text><text x="150" y="376" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6b7290">#${esc(info.id || "----")}${info.date ? ` · ${esc(info.date)} 발급` : ""}</text>`}
 <text x="276" y="404" text-anchor="end" font-family="sans-serif" font-size="8" font-weight="700" fill="#ffffff" opacity=".55">JUMPROPE CHALLENGE · SECRET</text>
 </svg>`;
   }
 
-  window.JumpSeals = { SEALS, STAGES, METAL, metalOf, sealSVG, coachSVG, jumperSVG, COACH, masterSVG };
+  /** 학년 클리어 카드 (한 학년 코스 씰 5장을 다 모으면 발급되는 시크릿 카드). 학년마다 색과 등장 캐릭터 5마리가 다르다. */
+  const CARD_BG = [["#ffd1dc", "#ff8fab"], ["#cfe8ff", "#74b9ff"], ["#d3f9d8", "#69db7c"], ["#ffe8cc", "#ffa94d"], ["#e5dbff", "#9775fa"], ["#fff3bf", "#fcc419"]];
+  function courseCardSVG(g, info = {}, secret = false) {
+    const uid = "k" + ++uidN + "_";
+    const esc = (t) => String(t || "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    const m = METAL[secret ? "grey" : metalOf(g)];
+    const [c1, c2] = secret ? ["#3a4256", "#151a26"] : CARD_BG[g - 1];
+    const font = "'Black Han Sans','Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+    const cast = SEALS.slice((g - 1) * 5, g * 5);
+    const spots = [[-58, -22, 0.78], [0, -30, 0.82], [58, -22, 0.78], [-32, 30, 0.9], [32, 30, 0.9]];
+    let rays = "";
+    for (let i = 0; i < 20; i += 2) {
+      const a1 = (i / 20) * Math.PI * 2, a2 = ((i + 1) / 20) * Math.PI * 2;
+      rays += `<path d="M150 210 L${f1(150 + Math.cos(a1) * 260)} ${f1(210 + Math.sin(a1) * 260)} L${f1(150 + Math.cos(a2) * 260)} ${f1(210 + Math.sin(a2) * 260)} Z"/>`;
+    }
+    const grads = cast.map((c, i) => `<radialGradient id="${uid}${i}b" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="${shade(c.body, 0.45)}"/><stop offset=".55" stop-color="${c.body}"/><stop offset="1" stop-color="${shade(c.body, -0.14)}"/></radialGradient>`).join("");
+    const chars = cast.map((c, i) => { const [x, y, k] = spots[i]; return `<g transform="translate(${150 + x} ${214 + y}) scale(${k})">${character(c, uid + i)}</g>`; }).join("");
+    return `<svg viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${secret ? `${g}학년 시크릿 카드, 아직 잠김` : `${esc(info.nick)}의 ${g}학년 클리어 카드`}">
+<defs>
+<linearGradient id="${uid}fr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m.ring1}"/><stop offset=".5" stop-color="${m.b}"/><stop offset="1" stop-color="${m.ring2}"/></linearGradient>
+<radialGradient id="${uid}bg" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="${secret ? c1 : "#ffffff"}"/><stop offset=".45" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></radialGradient>
+${grads}
+<clipPath id="${uid}c"><rect x="12" y="12" width="276" height="396" rx="16"/></clipPath>
+<filter id="${uid}k"><feColorMatrix type="matrix" values="0 0 0 0 .05  0 0 0 0 .07  0 0 0 0 .12  0 0 0 .9 0"/></filter>
+</defs>
+<rect width="300" height="420" rx="24" fill="url(#${uid}fr)"/>
+<rect x="12" y="12" width="276" height="396" rx="16" fill="url(#${uid}bg)"/>
+<g clip-path="url(#${uid}c)"><g fill="#fff" opacity="${secret ? 0.04 : 0.3}">${rays}</g></g>
+<circle cx="44" cy="46" r="22" fill="${secret ? "#2a3042" : "#2d3f73"}" stroke="${m.ring1}" stroke-width="3"/>
+<text x="44" y="56" text-anchor="middle" font-family="${font}" font-size="28" fill="${secret ? "#8a93a6" : "#ffd84a"}">${g}</text>
+<text x="160" y="62" text-anchor="middle" font-family="${font}" font-size="40" fill="${secret ? "#8a93a6" : "#fff"}" stroke="${secret ? "#151a26" : "#2d3f73"}" stroke-width="6" paint-order="stroke" letter-spacing="2">${secret ? "SECRET" : "CLEAR!"}</text>
+<text x="160" y="86" text-anchor="middle" font-family="${font}" font-size="15" fill="${secret ? "#c3c9d6" : "#2d3f73"}">${g}학년 코스 ${secret ? "시크릿 카드" : "완주 · 씰 5 / 5"}</text>
+<g${secret ? ` filter="url(#${uid}k)"` : ""}>${chars}</g>
+${secret ? `<text x="150" y="232" text-anchor="middle" font-family="${font}" font-size="70" fill="#8a93a6" stroke="#151a26" stroke-width="4" paint-order="stroke">?</text>` : ""}
+<g>${[0, 1, 2, 3, 4].map((i) => `<path d="${STAR}" transform="translate(${102 + i * 24} 300) scale(1.25)" fill="${secret ? "#5b6478" : "#ffd43b"}" stroke="${secret ? "#3a4256" : "#6b3f00"}" stroke-width="1"/>`).join("")}</g>
+<rect x="34" y="320" width="232" height="70" rx="12" fill="${secret ? "#2a3042" : "#fffdf5"}" stroke="${secret ? "#5b6478" : m.ring2}" stroke-width="3"/>
+${secret
+      ? `<text x="150" y="350" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">${g}학년 코스 씰 5장을 모으면</text><text x="150" y="372" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">이 카드가 열려요</text>`
+      : `<text x="150" y="352" text-anchor="middle" font-family="${font}" font-size="24" fill="#2d3f73">${esc(info.nick)}</text><text x="150" y="376" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6b7290">#${esc(info.id || "----")}${info.date ? ` · ${esc(info.date)} 발급` : ""}</text>`}
+<text x="276" y="404" text-anchor="end" font-family="sans-serif" font-size="8" font-weight="700" fill="${secret ? "#fff" : "#2d3f73"}" opacity=".55">JUMPROPE CHALLENGE · ${g} / 6</text>
+</svg>`;
+  }
+
+  window.JumpSeals = { SEALS, STAGES, METAL, metalOf, sealSVG, coachSVG, jumperSVG, COACH, masterSVG, courseCardSVG };
 })();

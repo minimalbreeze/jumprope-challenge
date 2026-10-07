@@ -17,7 +17,7 @@
   // ---------- 상태 ----------
   function load() {
     try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 1) return s; } catch (e) {}
-    return { v: 1, nick: "", grade: 0, seals: {}, reps: [], sound: true };
+    return { v: 1, nick: "", grade: 0, seals: {}, reps: [], cards: {}, sound: true };
   }
   let state = load();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -25,6 +25,9 @@
   let filter = "all", peek = false;
 
   const has = (no) => !!state.seals[no];
+  // 학년 클리어 카드 발급일: 기록이 없으면(예전 기록) 그 코스 마지막 씰 받은 날
+  const cardDate = (g) => (state.cards && state.cards[g] && state.cards[g].at) ||
+    [1, 2, 3, 4, 5].map((s) => (state.seals[(g - 1) * 5 + s] || {}).at || "").sort().pop();
   const courseDone = (g) => [1, 2, 3, 4, 5].every((s) => has((g - 1) * 5 + s));
   const unlocked = (g) => g === 1 || courseDone(g - 1);
   const available = (s) => !has(s.no) && unlocked(s.grade) && (s.stage === 1 || has(s.no - 1));
@@ -107,7 +110,7 @@
     const st = stats(state.seals);
     $("#cnt").textContent = st.n;
     $("#barFill").style.width = (st.n / 30) * 100 + "%";
-    $("#facts").innerHTML = `<span>반짝이 ${st.holo}장</span><span>완주 ${st.done}코스</span>`;
+    $("#facts").innerHTML = `<span>반짝이 ${st.holo}장</span><span>시크릿 카드 ${st.done} / 6</span>${state.master ? "<span>👑 마스터</span>" : ""}`;
     const slots = $("#slots"); slots.innerHTML = "";
     for (let i = 0; i < 3; i++) {
       const no = state.reps[i];
@@ -146,15 +149,20 @@
         <header><h3>${g}학년 코스<span class="metal ${metalOf(g)}">${METAL[metalOf(g)].label}</span></h3><span class="state">${state_}</span></header>
         <div class="cells">${cells}</div></article>`;
     }
-    if (filter === "all" || (filter === "have" && state.master)) {
-      html += `<article class="panel course secret"><span class="wtitle">${state.master ? "👑 마스터 카드" : "🔒 시크릿"}</span>
-        <button class="cell secret-cell" id="masterCell" aria-label="${state.master ? "마스터 카드 보기" : "시크릿 카드: 아직 잠김"}">
+    if (filter !== "need") {
+      const cards = [1, 2, 3, 4, 5, 6].map((g) => { const own = courseDone(g);
+        return `<button class="cell card-cell" data-card="${g}" aria-label="${own ? `${g}학년 클리어 카드 보기` : `${g}학년 시크릿 카드: 아직 잠김`}"><span class="${own ? "holo-card" : ""}" style="display:block;width:100%">${window.JumpSeals.courseCardSVG(g, own ? cardInfo(g) : {}, !own)}</span><small>${own ? `${g}학년 클리어` : "???"}</small></button>`; }).join("");
+      html += `<article class="panel course secret"><span class="wtitle">🔒 시크릿 카드 ${stats(state.seals).done} / 6</span>
+        <p class="muted" style="margin:4px 0 0;font-size:13px;text-align:center">학년 코스 씰 5장을 다 모으면 그 학년의 시크릿 카드가 열려.</p>
+        <div class="card-grid">${cards}</div>
+        <button class="cell secret-cell" id="masterCell" aria-label="${state.master ? "마스터 카드 보기" : "마스터 카드: 아직 잠김"}">
           <span class="${state.master ? "holo-card" : ""}" style="display:block;width:100%">${window.JumpSeals.masterSVG(state.master ? masterInfo() : {}, !state.master)}</span>
-        </button>
-        <p class="muted" style="margin:0;font-size:13px;text-align:center">${state.master ? "30장을 모두 모은 사람만 가진 카드야." : "씰 30장을 모두 모으면 열리는 비밀 카드가 있어."}</p></article>`;
+          <small>${state.master ? "👑 마스터 카드" : "마지막 카드: 30장을 모두 모으면 열려"}</small>
+        </button></article>`;
     }
     box.innerHTML = html || `<p class="panel muted" style="margin:0">${filter === "have" ? "아직 모은 씰이 없어. 1단계부터 도전해 봐!" : "30장 다 모았어! 도감 완성 🎉"}</p>`;
     const mc = $("#masterCell"); mc && (mc.onclick = openMaster);
+    box.querySelectorAll("[data-card]").forEach((b) => (b.onclick = () => openCard(+b.dataset.card)));
     box.querySelectorAll(".cell").forEach((b) => (b.onclick = () => openSeal(+b.dataset.no)));
   }
   $("#tabs").addEventListener("click", (e) => {
@@ -218,14 +226,24 @@
   function award(no) {
     const seal = sealByNo(no);
     const wasOpen = [1, 2, 3, 4, 5, 6].map(unlocked);
+    const wasDone = courseDone(seal.grade);
     state.seals[no] = { at: today(), holo: seal.grade > state.grade };
     save();
     const msgs = [];
     if (courseDone(seal.grade)) msgs.push(`${seal.grade}학년 코스 완주! 🎉`);
     [1, 2, 3, 4, 5, 6].forEach((g, i) => { if (!wasOpen[i] && unlocked(g)) msgs.push(`${g}학년 코스가 열렸어!${g > state.grade ? " 여기서 따는 씰은 전부 반짝이야 ✨" : ""}`); });
-    let master = false;
-    if (Object.keys(state.seals).length === 30 && !state.master) { state.master = { at: today() }; save(); master = true; msgs.push("30장 도감 완성! 그런데… 뭔가 더 있는 것 같아 👀"); }
-    reveal(seal, state.seals[no].holo, msgs, master ? showMasterReveal : null);
+    const chain = [];
+    if (!wasDone && courseDone(seal.grade)) {
+      state.cards = state.cards || {}; state.cards[seal.grade] = { at: today() }; save();
+      msgs.push("어? 씰 봉투 뒤에 뭔가 숨어 있어… 👀");
+      chain.push(() => showCardReveal(seal.grade, next));
+    }
+    if (Object.keys(state.seals).length === 30 && !state.master) {
+      state.master = { at: today() }; save();
+      chain.push(() => showMasterReveal(next));
+    }
+    function next() { const f = chain.shift(); f ? f() : renderAll(); }
+    reveal(seal, state.seals[no].holo, msgs, next);
     renderAll();
   }
   function reveal(seal, holo, msgs, after) {
@@ -250,26 +268,49 @@
     setTimeout(() => { if (ov.querySelector("#pack")) show(); }, 1800);
   }
   const masterInfo = () => ({ nick: state.nick, id: me.id, date: state.master && state.master.at });
-  function showMasterReveal() {
+  function secretReveal({ locked, opened, title, text, keep }, done) {
     const ov = document.createElement("div");
-    ov.className = "reveal"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "마스터 카드 발급");
-    ov.innerHTML = `<div class="stage"><h2>시크릿 카드 발견!</h2><button class="pack master-pack" id="pack" aria-label="시크릿 카드 열기">${window.JumpSeals.masterSVG({}, true)}</button><p>30장을 모두 모은 사람만 열 수 있어. 눌러 봐!</p></div>`;
+    ov.className = "reveal"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", title);
+    ov.innerHTML = `<div class="stage"><h2>시크릿 카드 발견!</h2><button class="pack master-pack" id="pack" aria-label="시크릿 카드 열기">${locked}</button><p>눌러서 열어 봐!</p></div>`;
     document.body.appendChild(ov);
-    const open = () => {
-      ov.querySelector(".stage").innerHTML = `<h2>👑 마스터 카드 발급!</h2>
-        <div class="card master-card holo-card">${window.JumpSeals.masterSVG(masterInfo())}</div>
-        <p>${esc(state.nick)}, 넌 이제 진짜 줄넘기왕이야! 이 카드엔 네 별명과 도감 번호가 새겨져 있어.</p>
-        <button class="btn" id="okBtn">도감에 보관하기</button>`;
-      ov.querySelector("#okBtn").onclick = () => { ov.remove(); renderAll(); };
+    ov.querySelector("#pack").focus();
+    ov.querySelector("#pack").onclick = () => {
+      ov.querySelector(".stage").innerHTML = `<h2>${title}</h2><div class="card master-card holo-card">${opened}</div><p>${text}</p><button class="btn" id="okBtn">${keep}</button>`;
+      ov.querySelector("#okBtn").onclick = () => { ov.remove(); done && done(); };
       ov.querySelector("#okBtn").focus();
       if (!matchMedia("(prefers-reduced-motion: reduce)").matches) { confetti(); setTimeout(confetti, 600); }
     };
-    ov.querySelector("#pack").onclick = open;
+  }
+  const cardInfo = (g) => ({ nick: state.nick, id: me.id, date: cardDate(g) });
+  function showCardReveal(g, done) {
+    secretReveal({
+      locked: window.JumpSeals.courseCardSVG(g, {}, true),
+      opened: window.JumpSeals.courseCardSVG(g, cardInfo(g)),
+      title: `🎉 ${g}학년 클리어 카드!`,
+      text: g < 6 ? `${g}학년 코스를 다 깼어! 시크릿 카드 ${g} / 6장. 이제 ${g + 1}학년 코스로 가자!` : "6학년 코스까지 다 깼어! 시크릿 카드 6장을 모두 모았어.",
+      keep: "카드 보관하기",
+    }, done);
+  }
+  function showMasterReveal(done) {
+    secretReveal({
+      locked: window.JumpSeals.masterSVG({}, true),
+      opened: window.JumpSeals.masterSVG(masterInfo()),
+      title: "👑 마스터 카드 발급!",
+      text: `${esc(state.nick)}, 넌 이제 진짜 줄넘기왕이야! 씰 30장과 시크릿 카드 6장을 다 모은 사람만 받는 카드야.`,
+      keep: "도감에 보관하기",
+    }, done);
+  }
+  function openCard(g) {
+    const own = courseDone(g);
+    openSheet(`<div class="big master-big ${own ? "holo-card" : ""}">${window.JumpSeals.courseCardSVG(g, own ? cardInfo(g) : {}, !own)}</div>
+      <h2>${own ? `${g}학년 클리어 카드` : `${g}학년 시크릿 카드`}</h2>
+      <p class="note">${own ? `${g}학년 코스 씰 5장을 모두 모아서 받은 카드야. 별명과 도감 번호가 새겨져 있어.` : `${g}학년 코스 씰 5장을 모두 모으면 열려. 어떤 카드인지는 비밀!`}</p>
+      <div class="actions"><button class="btn ghost" data-close>닫기</button></div>`);
   }
   function openMaster() {
     if (!state.master) {
       openSheet(`<div class="big master-big">${window.JumpSeals.masterSVG({}, true)}</div><h2>시크릿 카드</h2>
-        <p class="note">씰 30장을 모두 모으면 이 카드가 열려. 무슨 카드인지는 비밀! (지금 ${Object.keys(state.seals).length} / 30장)</p>
+        <p class="note">씰 30장(시크릿 카드 6장)을 모두 모으면 열리는 마지막 카드야. 무슨 카드인지는 비밀! (지금 씰 ${Object.keys(state.seals).length} / 30장)</p>
         <div class="actions"><button class="btn ghost" data-close>닫기</button></div>`);
       return;
     }
@@ -442,6 +483,7 @@
         <div class="muted">${p.g}학년 · 씰 ${st.n} / 30장 · 반짝이 ${st.holo}장 · 완주 ${st.done}코스 · ${esc(p.t || "")} 발급</div>
         ${reps.length ? `<div class="cells" style="grid-template-columns:repeat(3,minmax(0,1fr));max-width:420px">${reps.map((n) => `<div>${sealHTML(sealByNo(n), { owned: true, holo: seals[n].holo })}</div>`).join("")}</div>` : ""}
       </section>
+      ${st.done ? `<section class="panel course secret"><span class="wtitle">시크릿 카드 ${st.done} / 6</span><div class="card-grid">${[1, 2, 3, 4, 5, 6].filter((g) => [1, 2, 3, 4, 5].every((k) => seals[(g - 1) * 5 + k])).map((g) => `<div class="cell" style="cursor:default"><span class="holo-card" style="display:block;width:100%">${window.JumpSeals.courseCardSVG(g, { nick: p.n, id: res.id })}</span><small>${g}학년 클리어</small></div>`).join("")}</div></section>` : ""}
       ${p.m && st.n === 30 ? `<section class="panel owner" style="justify-items:center;text-align:center"><span class="wtitle">👑 마스터 카드</span><div class="holo-card" style="width:min(300px,80vw)">${window.JumpSeals.masterSVG({ nick: p.n, id: res.id, date: p.m })}</div><span class="muted" style="font-size:13px">씰 30장을 모두 모은 사람만 가진 시크릿 카드</span></section>` : ""}
       ${grid}
       <p class="muted" style="margin:0;font-size:13px">사진은 누구나 저장할 수 있지만, 이 화면은 링크를 열어야만 나와. 초록 점과 시계가 움직이면 지금 열어 본 진짜 화면이야.</p>
