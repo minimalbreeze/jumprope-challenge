@@ -17,7 +17,7 @@
   // ---------- 상태 ----------
   function load() {
     try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 1) return s; } catch (e) {}
-    return { v: 1, nick: "", grade: 0, seals: {}, reps: [], sens: "mid", sound: true };
+    return { v: 1, nick: "", grade: 0, seals: {}, reps: [], sound: true };
   }
   let state = load();
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
@@ -26,7 +26,7 @@
 
   const has = (no) => !!state.seals[no];
   const courseDone = (g) => [1, 2, 3, 4, 5].every((s) => has((g - 1) * 5 + s));
-  const unlocked = (g) => g <= state.grade || (g > 1 && courseDone(g - 1));
+  const unlocked = (g) => g === 1 || courseDone(g - 1);
   const available = (s) => !has(s.no) && unlocked(s.grade) && (s.stage === 1 || has(s.no - 1));
   const sealByNo = (no) => SEALS[no - 1];
 
@@ -85,7 +85,7 @@
   $("#reroll").onclick = () => { draft.nick = rollNick(); renderHello(); };
   $("#startBtn").onclick = () => {
     state.grade = draft.grade; state.nick = draft.nick; save(); renderAll();
-    toast(`${state.grade}학년 코스부터 열렸어. 1단계 씰에 도전해 봐!`);
+    toast("1학년 코스 1단계부터 시작! 하나씩 깨면 다음 단계가 열려");
   };
 
   // ---------- 요약 ----------
@@ -146,7 +146,15 @@
         <header><h3>${g}학년 코스<span class="metal ${metalOf(g)}">${METAL[metalOf(g)].label}</span></h3><span class="state">${state_}</span></header>
         <div class="cells">${cells}</div></article>`;
     }
+    if (filter === "all" || (filter === "have" && state.master)) {
+      html += `<article class="panel course secret"><span class="wtitle">${state.master ? "👑 마스터 카드" : "🔒 시크릿"}</span>
+        <button class="cell secret-cell" id="masterCell" aria-label="${state.master ? "마스터 카드 보기" : "시크릿 카드: 아직 잠김"}">
+          <span class="${state.master ? "holo-card" : ""}" style="display:block;width:100%">${window.JumpSeals.masterSVG(state.master ? masterInfo() : {}, !state.master)}</span>
+        </button>
+        <p class="muted" style="margin:0;font-size:13px;text-align:center">${state.master ? "30장을 모두 모은 사람만 가진 카드야." : "씰 30장을 모두 모으면 열리는 비밀 카드가 있어."}</p></article>`;
+    }
     box.innerHTML = html || `<p class="panel muted" style="margin:0">${filter === "have" ? "아직 모은 씰이 없어. 1단계부터 도전해 봐!" : "30장 다 모았어! 도감 완성 🎉"}</p>`;
+    const mc = $("#masterCell"); mc && (mc.onclick = openMaster);
     box.querySelectorAll(".cell").forEach((b) => (b.onclick = () => openSeal(+b.dataset.no)));
   }
   $("#tabs").addEventListener("click", (e) => {
@@ -199,7 +207,7 @@
       const q = el.querySelector("#questBtn");
       q && (q.onclick = () => {
         closeSheet();
-        JumpChallenge.start(seal, { sens: state.sens || "mid", sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade, onClear: () => award(no) });
+        JumpChallenge.start(seal, { sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade, onClear: () => award(no) });
       });
       const win = el.querySelector("#winBtn");
       win && (win.onclick = () => { closeSheet(); award(no); });
@@ -215,11 +223,12 @@
     const msgs = [];
     if (courseDone(seal.grade)) msgs.push(`${seal.grade}학년 코스 완주! 🎉`);
     [1, 2, 3, 4, 5, 6].forEach((g, i) => { if (!wasOpen[i] && unlocked(g)) msgs.push(`${g}학년 코스가 열렸어!${g > state.grade ? " 여기서 따는 씰은 전부 반짝이야 ✨" : ""}`); });
-    if (Object.keys(state.seals).length === 30) msgs.push("30장 도감 완성! 줄넘기왕 등극 👑");
-    reveal(seal, state.seals[no].holo, msgs);
+    let master = false;
+    if (Object.keys(state.seals).length === 30 && !state.master) { state.master = { at: today() }; save(); master = true; msgs.push("30장 도감 완성! 그런데… 뭔가 더 있는 것 같아 👀"); }
+    reveal(seal, state.seals[no].holo, msgs, master ? showMasterReveal : null);
     renderAll();
   }
-  function reveal(seal, holo, msgs) {
+  function reveal(seal, holo, msgs, after) {
     const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
     const ov = document.createElement("div");
     ov.className = "reveal"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "새 씰");
@@ -231,7 +240,7 @@
         <p>No.${pad(seal.no)} ${seal.animal} · ${seal.grade}학년 코스 ${seal.stage}단계</p>
         ${msgs.map((m) => `<p><b>${m}</b></p>`).join("")}
         <button class="btn" id="okBtn">도감에 붙이기</button>`;
-      ov.querySelector("#okBtn").onclick = () => ov.remove();
+      ov.querySelector("#okBtn").onclick = () => { ov.remove(); after && after(); };
       ov.querySelector("#okBtn").focus();
       if (!reduce) confetti();
     };
@@ -239,6 +248,36 @@
     pack.focus();
     pack.onclick = show;
     setTimeout(() => { if (ov.querySelector("#pack")) show(); }, 1800);
+  }
+  const masterInfo = () => ({ nick: state.nick, id: me.id, date: state.master && state.master.at });
+  function showMasterReveal() {
+    const ov = document.createElement("div");
+    ov.className = "reveal"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-label", "마스터 카드 발급");
+    ov.innerHTML = `<div class="stage"><h2>시크릿 카드 발견!</h2><button class="pack master-pack" id="pack" aria-label="시크릿 카드 열기">${window.JumpSeals.masterSVG({}, true)}</button><p>30장을 모두 모은 사람만 열 수 있어. 눌러 봐!</p></div>`;
+    document.body.appendChild(ov);
+    const open = () => {
+      ov.querySelector(".stage").innerHTML = `<h2>👑 마스터 카드 발급!</h2>
+        <div class="card master-card holo-card">${window.JumpSeals.masterSVG(masterInfo())}</div>
+        <p>${esc(state.nick)}, 넌 이제 진짜 줄넘기왕이야! 이 카드엔 네 별명과 도감 번호가 새겨져 있어.</p>
+        <button class="btn" id="okBtn">도감에 보관하기</button>`;
+      ov.querySelector("#okBtn").onclick = () => { ov.remove(); renderAll(); };
+      ov.querySelector("#okBtn").focus();
+      if (!matchMedia("(prefers-reduced-motion: reduce)").matches) { confetti(); setTimeout(confetti, 600); }
+    };
+    ov.querySelector("#pack").onclick = open;
+  }
+  function openMaster() {
+    if (!state.master) {
+      openSheet(`<div class="big master-big">${window.JumpSeals.masterSVG({}, true)}</div><h2>시크릿 카드</h2>
+        <p class="note">씰 30장을 모두 모으면 이 카드가 열려. 무슨 카드인지는 비밀! (지금 ${Object.keys(state.seals).length} / 30장)</p>
+        <div class="actions"><button class="btn ghost" data-close>닫기</button></div>`);
+      return;
+    }
+    openSheet(`<div class="big master-big holo-card">${window.JumpSeals.masterSVG(masterInfo())}</div><h2>마스터 카드</h2>
+      <div><span class="pill">👑 줄넘기왕</span> <span class="pill">발급일 ${state.master.at}</span></div>
+      <p class="note">자랑 카드와 공유 링크에도 마스터 표시가 붙어. 링크를 연 친구도 이 카드를 볼 수 있어.</p>
+      <div class="actions"><button class="btn" id="mShare">자랑하기 📣</button><button class="btn ghost" data-close>닫기</button></div>`,
+      (el) => { el.querySelector("#mShare").onclick = () => { closeSheet(); share(); }; });
   }
   function confetti() {
     const c = document.createElement("div"); c.className = "confetti";
@@ -256,7 +295,7 @@
   function payloadOf() {
     let c = "";
     for (let i = 1; i <= 30; i++) c += state.seals[i] ? (state.seals[i].holo ? "2" : "1") : "0";
-    return { v: 1, n: state.nick, g: state.grade, c, r: repsList(), t: today() };
+    return { v: 1, n: state.nick, g: state.grade, c, r: repsList(), t: today(), ...(state.master ? { m: state.master.at } : {}) };
   }
   const decodeSeals = (c) => { const o = {}; [...c].forEach((ch, i) => { if (ch !== "0") o[i + 1] = { holo: ch === "2" }; }); return o; };
 
@@ -281,6 +320,7 @@
     x.lineWidth = 8; x.strokeStyle = "#2d3f73"; x.stroke(); x.lineWidth = 5; x.strokeStyle = "#f7c948"; roundRect(x, 40, 40, W - 80, H - 80, 28); x.stroke();
     // 글자
     x.fillStyle = "#ff7a2f"; x.font = F(40); x.fillText("줄넘기 등급 챌린지 · 씰 도감", 70, 104);
+    if (p.m) { x.fillStyle = "#2d3f73"; roundRect(x, 760, 66, 250, 56, 28); x.fill(); x.fillStyle = "#ffd84a"; x.font = F(34); x.fillText("👑 MASTER", 790, 106); }
     x.fillStyle = "#2d3f73"; x.font = F(86); x.fillText(p.n, 70, 200);
     const seals = decodeSeals(p.c), st = stats(seals);
     x.fillStyle = "#5f7a84"; x.font = F(34);
@@ -402,6 +442,7 @@
         <div class="muted">${p.g}학년 · 씰 ${st.n} / 30장 · 반짝이 ${st.holo}장 · 완주 ${st.done}코스 · ${esc(p.t || "")} 발급</div>
         ${reps.length ? `<div class="cells" style="grid-template-columns:repeat(3,minmax(0,1fr));max-width:420px">${reps.map((n) => `<div>${sealHTML(sealByNo(n), { owned: true, holo: seals[n].holo })}</div>`).join("")}</div>` : ""}
       </section>
+      ${p.m && st.n === 30 ? `<section class="panel owner" style="justify-items:center;text-align:center"><span class="wtitle">👑 마스터 카드</span><div class="holo-card" style="width:min(300px,80vw)">${window.JumpSeals.masterSVG({ nick: p.n, id: res.id, date: p.m })}</div><span class="muted" style="font-size:13px">씰 30장을 모두 모은 사람만 가진 시크릿 카드</span></section>` : ""}
       ${grid}
       <p class="muted" style="margin:0;font-size:13px">사진은 누구나 저장할 수 있지만, 이 화면은 링크를 열어야만 나와. 초록 점과 시계가 움직이면 지금 열어 본 진짜 화면이야.</p>
       <div>${preview ? `<button class="btn ghost" id="backBtn">← 내 도감으로 돌아가기</button>` : `<a class="btn" href="${esc(BASE)}" style="text-decoration:none;display:inline-block">나도 씰 모으기 시작</a>`}</div>
@@ -427,13 +468,6 @@
     }
   }
   function renderPrefs() {
-    const row = $("#setSens"); row.querySelectorAll("button").forEach((b) => b.remove());
-    [["low", "둔하게"], ["mid", "보통"], ["high", "예민하게"]].forEach(([k, t]) => {
-      const b = document.createElement("button"); b.className = "chip"; b.textContent = t;
-      b.setAttribute("aria-pressed", (state.sens || "mid") === k);
-      b.onclick = () => { state.sens = k; save(); renderPrefs(); toast(k === "high" ? "살살 뛰어도 잘 세. 대신 흔들림도 셀 수 있어" : k === "low" ? "확실하게 뛴 것만 세" : "보통 감도로 셀게"); };
-      row.appendChild(b);
-    });
     const snd = $("#setSound"); const on = state.sound !== false;
     snd.setAttribute("aria-pressed", on); snd.textContent = on ? "켜짐 🔊" : "꺼짐 🔇";
   }
@@ -448,10 +482,47 @@
 
   function renderAll() { renderMe(); renderHello(); renderSummary(); renderAlbum(); renderSettings(); renderPrefs(); }
 
+  // ---------- 시작 화면 ----------
+  function jingle() {
+    try {
+      const ac = new (window.AudioContext || window.webkitAudioContext)();
+      [523, 659, 784, 1047, 784, 1047].forEach((f, i) => {
+        const t = ac.currentTime + i * 0.09, o = ac.createOscillator(), g = ac.createGain();
+        o.type = "square"; o.frequency.value = f; g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+        o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 0.18);
+      });
+    } catch (e) {}
+  }
+  function showTitle() {
+    const box = $("#title");
+    const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const cast = [[SEALS[5], 0.72, 0.1], [SEALS[11], 0.86, 0.45], [window.JumpSeals.COACH, 0.8, 0], [SEALS[22], 0.76, 0.3], [SEALS[29], 0.9, 0.6]];
+    $("#tStage").innerHTML = cast.map(([c, dur, delay], i) =>
+      `<div class="jm${i === 2 ? " coach" : ""}">${window.JumpSeals.jumperSVG(c, { dur, delay, still })}</div>`).join("");
+    const save = $("#tSave");
+    if (state.grade) {
+      $("#tStart").innerHTML = "이어<br>하기";
+      save.hidden = false;
+      save.textContent = `${state.nick} · ${state.grade}학년 · 씰 ${Object.keys(state.seals).length}/30장`;
+    }
+    box.hidden = false;
+    document.documentElement.style.overflow = "hidden";
+    const btn = $("#tStart");
+    btn.focus();
+    btn.onclick = () => {
+      if (state.sound !== false) jingle();
+      box.classList.add("leave");
+      document.documentElement.style.overflow = "";
+      setTimeout(() => { box.hidden = true; box.classList.remove("leave"); $("#tStage").innerHTML = ""; }, 460);
+      if (!state.grade) setTimeout(() => $("#hello").scrollIntoView({ block: "start" }), 50);
+    };
+  }
+
   // ---------- 시작 ----------
   async function boot() {
     const d = new URLSearchParams(location.search).get("d");
     renderAll();
+    if (!d) showTitle();
     me = await JumpID.init();
     renderMe();
     if (d) {

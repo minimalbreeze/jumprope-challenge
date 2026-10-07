@@ -215,6 +215,49 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 .qwin .rstats{color:var(--ink)}
 .qwin .rstats div{background:var(--win-soft);border-color:var(--gray2)}
 
+
+/* 시작 화면 (게임 타이틀) */
+.title-screen{position:fixed;inset:0;z-index:70;overflow:hidden;display:grid;grid-template-rows:1fr auto auto;justify-items:center;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 16px calc(22px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(180deg,#3fa9ff 0%,#8fd3ff 45%,#d9f3ff 70%,#d9f3ff 100%);transition:opacity .45s,transform .45s}
+.title-screen.leave{opacity:0;transform:scale(1.06);pointer-events:none}
+.clouds i{position:absolute;display:block;width:120px;height:40px;border-radius:40px;background:#fff;opacity:.95;animation:drift 28s linear infinite}
+.clouds i::before,.clouds i::after{content:"";position:absolute;background:#fff;border-radius:50%}
+.clouds i::before{width:54px;height:54px;left:18px;top:-26px}.clouds i::after{width:40px;height:40px;left:58px;top:-16px}
+.clouds i:nth-child(1){top:12%;left:-10%}.clouds i:nth-child(2){top:28%;left:60%;transform:scale(.7);animation-duration:36s;animation-delay:-14s}
+.clouds i:nth-child(3){top:6%;left:35%;transform:scale(.5);opacity:.8;animation-duration:44s;animation-delay:-30s}
+@keyframes drift{from{translate:-30vw 0}to{translate:120vw 0}}
+.t-logo{align-self:center;text-align:center;display:grid;gap:8px;justify-items:center;position:relative;z-index:1}
+.t-small{font-family:var(--font-ui);font-size:15px;color:#fff;background:var(--navy);border:2.5px solid var(--gold);border-radius:999px;padding:2px 14px;box-shadow:0 3px 0 var(--navy-dk)}
+.t-logo h1{font-family:var(--font-game);font-size:clamp(46px,14vw,84px);line-height:.98;color:#fff;-webkit-text-stroke:6px var(--navy);paint-order:stroke fill;
+  text-shadow:0 7px 0 var(--navy-dk),0 12px 18px #1d2a5255;animation:logo 2.6s ease-in-out infinite}
+.t-logo h1 em{font-style:normal;color:#ffd84a;font-size:1.12em}
+@keyframes logo{50%{transform:translateY(-6px) rotate(-1deg)}}
+.t-logo p{margin:4px 0 0;font-family:var(--font-ui);font-size:16px;color:var(--navy);background:#ffffffd9;border-radius:12px;padding:4px 12px}
+.t-stage{position:relative;z-index:2;display:flex;align-items:flex-end;justify-content:center;gap:0;width:min(640px,100%);margin-bottom:-14px}
+.t-stage .jm{flex:1 1 0;min-width:0;max-width:150px;margin:0 -12px}
+.t-stage .jm.coach{flex:2 1 0;max-width:250px;margin:0 -4px}
+.t-stage svg{display:block;width:100%;overflow:visible}
+.t-ground{position:absolute;left:-10%;right:-10%;bottom:0;height:36%;z-index:1;border-radius:50% 50% 0 0/40px 40px 0 0;
+  background:repeating-linear-gradient(90deg,#7fd36b 0 18px,#74c960 18px 36px);border-top:6px solid #4fa83d;box-shadow:inset 0 10px 0 #9be486}
+.t-bottom{position:relative;z-index:3;display:grid;justify-items:center;gap:10px}
+.t-start{width:150px;font-size:30px;line-height:1.05}
+.t-save{font-family:var(--font-ui);font-size:15px;background:#fffdf5;border:2.5px solid var(--navy);border-radius:999px;padding:3px 14px;box-shadow:0 3px 0 var(--navy-dk)}
+.t-note{font-family:var(--font-ui);color:#1d4d1a;font-size:13px}
+
+
+/* 시크릿·마스터 카드 */
+.secret{justify-items:center}
+.secret-cell{width:min(240px,70%)!important}
+.secret-cell svg,.master-big svg,.reveal .master-card svg,.master-pack svg{max-width:none;width:100%;filter:drop-shadow(0 6px 0 #0003)}
+.master-big{width:min(280px,72vw)!important}
+.reveal .pack.master-pack{all:unset;cursor:pointer;width:min(220px,58vw);animation:wiggle .45s ease-in-out infinite}
+.reveal .master-card{width:min(280px,72vw)}
+.holo-card{position:relative;display:block;border-radius:8%;overflow:hidden}
+.holo-card::after{content:"";position:absolute;inset:0;pointer-events:none;mix-blend-mode:overlay;
+  background:linear-gradient(115deg,transparent 30%,#ffffffaa 45%,#ffd6f5 50%,#c8f7ff 55%,transparent 70%);background-size:250% 100%;animation:shine 3s linear infinite}
+@keyframes shine{from{background-position:150% 0}to{background-position:-100% 0}}
+
 /* 새 씰 연출 */
 .reveal{position:fixed;inset:0;z-index:50;background:radial-gradient(circle,#ffe8a3 0%,#3f5aa8 45%,#141d3d 100%);display:grid;place-items:center;padding:16px}
 .reveal .stage{display:grid;justify-items:center;gap:12px;text-align:center;color:#fff}
@@ -258,6 +301,21 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 </style>
 </head>
 <body>
+<section class="title-screen" id="title" hidden aria-label="시작 화면">
+  <div class="clouds" aria-hidden="true"><i></i><i></i><i></i></div>
+  <div class="t-logo">
+    <span class="t-small">초등학생 줄넘기 모험</span>
+    <h1>줄넘기<br><em>등급 챌린지</em></h1>
+    <p>퀘스트를 깨고 씰 30장을 모아 줄넘기왕이 되자!</p>
+  </div>
+  <div class="t-stage" id="tStage"></div>
+  <div class="t-ground" aria-hidden="true"></div>
+  <div class="t-bottom">
+    <button class="startbtn t-start" id="tStart">게임<br>시작</button>
+    <div class="t-save" id="tSave" hidden></div>
+    <small class="t-note">🔊 소리가 나요</small>
+  </div>
+</section>
 <div class="wrap" id="app">
   <header class="top">
     <h1 class="logo">줄넘기 <em>등급 챌린지</em></h1>
@@ -301,7 +359,6 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
     <span class="wtitle">도감 관리</span>
     <div class="row"><span class="muted">별명</span><b id="setNick" style="font-family:var(--font-ui);font-weight:400;font-size:17px"></b><button class="btn small ghost" id="setReroll">바꾸기 ↻</button></div>
     <div class="row" id="setGrade"><span class="muted">학년</span></div>
-    <div class="row" id="setSens"><span class="muted">감도</span></div>
     <div class="row"><span class="muted">소리</span><button class="chip" id="setSound" aria-pressed="true">켜짐</button></div>
     <div class="row"><button class="btn small ghost" id="resetBtn">기록 모두 지우기</button><span id="resetBox"></span></div>
     <div class="row"><label class="muted" style="font-size:13px"><input type="checkbox" id="peek"> 개발용: 못 모은 씰 그림 보기 + 시험용 성공 버튼</label></div>

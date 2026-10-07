@@ -194,7 +194,7 @@
 
   // ---------- 5. 측정 ----------
   function run(seal, opts) {
-    const g = seal.goal, th = SENS[opts.sens] || SENS.mid;
+    const g = seal.goal, th = SENS.mid;
     layer.innerHTML = `<div class="hud">
       <div class="hud-top"><span class="hud-quest">${esc(seal.mission)}</span><span class="hud-time" id="hTime">--:--</span></div>
       <div class="hud-mid">

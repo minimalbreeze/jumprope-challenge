@@ -136,7 +136,7 @@
   }
 
   // ---- 캐릭터 한 마리 (중심 0,0 · 몸 반지름 약 30) ----
-  function character(c, uid) {
+  function character(c, uid, noRope) {
     const B = c.body, D = shade(B, -0.24), L = c.belly || shade(B, 0.5);
     const behind = [], over = [], face = [], top = [];
     let eyeY = 1, eyeX = 11, mouthY = 9.5, eyeStyle = c.eyes, cheeks = true;
@@ -334,7 +334,7 @@
     const handle = shade(c.rope, -0.3);
     s.push(`<ellipse cx="0" cy="36.5" rx="25" ry="4.2" fill="#000" opacity=".18"/>`);
     // 줄넘기 줄 (발밑으로 지나가는 호, 두 겹 색)
-    s.push(`<path d="M-38 4 Q0 82 38 4" fill="none" stroke="${shade(c.rope, -0.35)}" stroke-width="4.6" stroke-linecap="round"/><path d="M-38 4 Q0 82 38 4" fill="none" stroke="${c.rope}" stroke-width="2.8" stroke-linecap="round"/>`);
+    if (!noRope) s.push(`<path d="M-38 4 Q0 82 38 4" fill="none" stroke="${shade(c.rope, -0.35)}" stroke-width="4.6" stroke-linecap="round"/><path d="M-38 4 Q0 82 38 4" fill="none" stroke="${c.rope}" stroke-width="2.8" stroke-linecap="round"/>`);
     s.push(behind.join(""));
     // 발
     const foot = orangeFeet ? "#ffa94d" : D;
@@ -532,5 +532,66 @@ ${stars}
     return `<svg viewBox="-55 -62 110 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><radialGradient id="${uid}b" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="${COACH.body}"/><stop offset="1" stop-color="${shade(COACH.body, -0.14)}"/></radialGradient></defs>${character(COACH, uid)}</svg>`;
   }
 
-  window.JumpSeals = { SEALS, STAGES, METAL, metalOf, sealSVG, coachSVG };
+  /** 줄넘기하는 캐릭터 (시작 화면용). SVG 자체 애니메이션이라 사파리에서도 움직인다.
+   *  몸이 위로 뜰 때 줄은 발밑, 바닥에 닿을 때 줄은 머리 위로 넘어간다. */
+  function jumperSVG(c, { dur = 0.8, delay = 0, still = false } = {}) {
+    const uid = "j" + ++uidN + "_";
+    const t = `dur="${dur}s" begin="${-delay}s" repeatCount="indefinite"`;
+    const rope = `<path d="M-38 0 Q0 94 38 0" fill="none" stroke="${shade(c.rope, -0.4)}" stroke-width="6" stroke-linecap="round"/><path d="M-38 0 Q0 94 38 0" fill="none" stroke="${c.rope}" stroke-width="3.6" stroke-linecap="round"/>`;
+    return `<svg viewBox="-64 -86 128 148" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><radialGradient id="${uid}b" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="${shade(c.body, 0.45)}"/><stop offset=".55" stop-color="${c.body}"/><stop offset="1" stop-color="${shade(c.body, -0.14)}"/></radialGradient></defs>
+<ellipse cx="0" cy="52" rx="24" ry="4.5" fill="#000" opacity=".2">${still ? "" : `<animate attributeName="rx" values="24;14;24" ${t}/>`}</ellipse>
+<g>${still ? "" : `<animateTransform attributeName="transform" type="translate" values="0 6;0 -14;0 6" keyTimes="0;.5;1" calcMode="spline" keySplines=".3 0 .5 1;.5 0 .7 1" ${t}/>`}
+${character(c, uid, true).replace('<ellipse cx="0" cy="36.5" rx="25" ry="4.2" fill="#000" opacity=".18"/>', "")}
+<g transform="translate(0 4)"><g>${still ? "" : `<animateTransform attributeName="transform" type="scale" values="1 -1;1 1;1 -1" ${t}/>`}${rope}</g></g>
+</g></svg>`;
+  }
+
+  /** 마스터 카드 (30장을 모두 모으면 발급되는 시크릿 카드). 별명·도감 번호·발급일이 카드에 새겨진다.
+   *  secret=true 면 아직 잠긴 실루엣 카드. */
+  function masterSVG(info = {}, secret = false) {
+    const uid = "m" + ++uidN + "_";
+    const esc = (t) => String(t || "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    const cx = 150, cy = 196;
+    let rays = "";
+    for (let i = 0; i < 24; i += 2) {
+      const a1 = (i / 24) * Math.PI * 2, a2 = ((i + 1) / 24) * Math.PI * 2;
+      rays += `<path d="M${cx} ${cy} L${f1(cx + Math.cos(a1) * 260)} ${f1(cy + Math.sin(a1) * 260)} L${f1(cx + Math.cos(a2) * 260)} ${f1(cy + Math.sin(a2) * 260)} Z"/>`;
+    }
+    let ring = "";
+    for (let i = 0; i < 30; i++) {
+      const a = (i / 30) * Math.PI * 2 - Math.PI / 2, x = cx + Math.cos(a) * 104, y = cy + Math.sin(a) * 104;
+      ring += `<path d="${STAR}" transform="translate(${f1(x)} ${f1(y)}) scale(.78)" fill="${secret ? "#5b6478" : ["#e09a64", "#e09a64", "#c9d2db", "#c9d2db", "#ffd84a", "#ffd84a"][Math.floor(i / 5)]}" stroke="${secret ? "#3a4256" : "#5a3a00"}" stroke-width=".9"/>`;
+    }
+    const font = "'Black Han Sans','Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+    const king = { ...SEALS[29], acc: ["crown"], mouth: "open", eyes: "sparkle" };
+    return `<svg viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${secret ? "아직 잠긴 시크릿 마스터 카드" : `${esc(info.nick)}의 줄넘기 마스터 카드`}">
+<defs>
+<linearGradient id="${uid}rb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${secret ? "#6b7488" : "#ff7ab6"}"/><stop offset=".25" stop-color="${secret ? "#8a93a6" : "#ffd36b"}"/><stop offset=".5" stop-color="${secret ? "#6b7488" : "#7dffb0"}"/><stop offset=".75" stop-color="${secret ? "#8a93a6" : "#6bd6ff"}"/><stop offset="1" stop-color="${secret ? "#6b7488" : "#b58bff"}"/></linearGradient>
+<radialGradient id="${uid}bg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="${secret ? "#3a4256" : "#4b66c0"}"/><stop offset="1" stop-color="${secret ? "#151a26" : "#141d3d"}"/></radialGradient>
+<linearGradient id="${uid}au" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6c4"/><stop offset=".5" stop-color="#ffd84a"/><stop offset="1" stop-color="#e09400"/></linearGradient>
+<radialGradient id="${uid}md" cx="38%" cy="30%" r="80%"><stop offset="0" stop-color="${secret ? "#8a93a6" : "#fff6c4"}"/><stop offset=".6" stop-color="${secret ? "#5b6478" : "#f0b829"}"/><stop offset="1" stop-color="${secret ? "#3a4256" : "#a06d00"}"/></radialGradient>
+<radialGradient id="${uid}b" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="${shade(king.body, 0.45)}"/><stop offset=".55" stop-color="${king.body}"/><stop offset="1" stop-color="${shade(king.body, -0.14)}"/></radialGradient>
+<clipPath id="${uid}c"><rect x="12" y="12" width="276" height="396" rx="16"/></clipPath>
+<filter id="${uid}k"><feColorMatrix type="matrix" values="0 0 0 0 .05  0 0 0 0 .07  0 0 0 0 .12  0 0 0 .9 0"/></filter>
+</defs>
+<rect x="0" y="0" width="300" height="420" rx="24" fill="url(#${uid}rb)"/>
+<rect x="12" y="12" width="276" height="396" rx="16" fill="url(#${uid}bg)"/>
+<g clip-path="url(#${uid}c)"><g fill="${secret ? "#ffffff" : "#ffd84a"}" opacity="${secret ? 0.04 : 0.12}">${rays}</g>
+${secret ? "" : `<g fill="#fff">${[[40, 70, 1.2], [262, 92, 1], [52, 300, .9], [250, 286, 1.3], [30, 180, .7], [272, 200, .8]].map(([x, y, k]) => `<path d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5Z" transform="translate(${x} ${y}) scale(${k})"/>`).join("")}</g>`}</g>
+<text x="150" y="66" text-anchor="middle" font-family="${font}" font-size="44" fill="${secret ? "#8a93a6" : `url(#${uid}au)`}" stroke="${secret ? "#151a26" : "#7a4a00"}" stroke-width="5" paint-order="stroke" letter-spacing="2">${secret ? "SECRET" : "MASTER"}</text>
+<text x="150" y="88" text-anchor="middle" font-family="${font}" font-size="15" fill="#fff" opacity=".9">${secret ? "시크릿 카드" : "줄넘기왕 · 씰 30 / 30 완성"}</text>
+${ring}
+<circle cx="${cx}" cy="${cy}" r="88" fill="url(#${uid}md)" stroke="${secret ? "#151a26" : "#7a4a00"}" stroke-width="3"/>
+<circle cx="${cx}" cy="${cy}" r="78" fill="${secret ? "#2a3042" : "#2d3f73"}" stroke="${secret ? "#8a93a6" : "#fff6c4"}" stroke-width="2"/>
+<g transform="translate(${cx} ${cy + 8}) scale(1.62)"${secret ? ` filter="url(#${uid}k)"` : ""}>${character(king, uid)}</g>
+${secret ? `<text x="${cx}" y="${cy + 22}" text-anchor="middle" font-family="${font}" font-size="64" fill="#8a93a6">?</text>` : ""}
+<rect x="34" y="320" width="232" height="70" rx="12" fill="${secret ? "#2a3042" : "#fffdf5"}" stroke="${secret ? "#5b6478" : "url(#" + uid + "au)"}" stroke-width="3"/>
+${secret
+      ? `<text x="150" y="350" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">씰 30장을 모두 모으면</text><text x="150" y="372" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">이 카드가 열려요</text>`
+      : `<text x="150" y="352" text-anchor="middle" font-family="${font}" font-size="24" fill="#2d3f73">${esc(info.nick)}</text><text x="150" y="376" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6b7290">#${esc(info.id || "----")} · ${esc(info.date || "")} 발급</text>`}
+<text x="276" y="404" text-anchor="end" font-family="sans-serif" font-size="8" font-weight="700" fill="#ffffff" opacity=".55">JUMPROPE CHALLENGE · SECRET</text>
+</svg>`;
+  }
+
+  window.JumpSeals = { SEALS, STAGES, METAL, metalOf, sealSVG, coachSVG, jumperSVG, COACH, masterSVG };
 })();
