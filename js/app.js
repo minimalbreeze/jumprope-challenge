@@ -215,7 +215,13 @@
       const q = el.querySelector("#questBtn");
       q && (q.onclick = () => {
         closeSheet();
-        JumpChallenge.start(seal, { sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade, onClear: () => award(no) });
+        JumpChallenge.start(seal, {
+          sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade,
+          firstTime: !state.safetyDone,
+          onSafetyDone: () => { state.safetyDone = true; save(); },
+          onSaved: renderClips,
+          onClear: () => award(no),
+        });
       });
       const win = el.querySelector("#winBtn");
       win && (win.onclick = () => { closeSheet(); award(no); });
@@ -456,7 +462,7 @@
   // ---------- 공유 링크로 들어온 화면 ----------
   let clockT;
   function showViewer(res, preview) {
-    ["#hello", "#summary", "#tabs", "#album", "#settings"].forEach((s) => ($(s).hidden = true));
+    ["#hello", "#summary", "#tabs", "#album", "#settings", "#clipsPanel"].forEach((s) => ($(s).hidden = true));
     const v = $("#viewer"); v.hidden = false;
     const p = res.payload, seals = decodeSeals(p.c || ""), st = stats(seals);
     const verify = res.status === "ok"
@@ -509,10 +515,49 @@
       row.appendChild(b);
     }
   }
+  // ---------- 내 영상 ----------
+  async function renderClips() {
+    const panel = $("#clipsPanel");
+    if (!state.grade || !window.JumpClips) { panel.hidden = true; return; }
+    const list = await JumpClips.list();
+    panel.hidden = !list.length;
+    $("#clipList").innerHTML = list.map((c) => {
+      const d = new Date(c.at), when = `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const issue = c.analysis && c.analysis.issues && c.analysis.issues[0];
+      return `<li><button class="clip-row" data-clip="${c.id}">
+        <span class="mini-seal">${sealSVG(sealByNo(c.sealNo), { empty: !has(c.sealNo) })}</span>
+        <span><b>${esc(c.mission)}</b><small>${when} · ${c.stats.count}개${issue ? ` · 연습: ${esc(issue.drill.name)}` : ""}</small></span>
+        <span class="res ${c.win ? "win" : "lose"}">${c.win ? "성공" : "도전"}</span></button></li>`;
+    }).join("");
+    $("#clipList").querySelectorAll("[data-clip]").forEach((b) => (b.onclick = () => openClip(+b.dataset.clip)));
+  }
+  async function openClip(id) {
+    const c = await JumpClips.get(id);
+    if (!c) return;
+    const url = c.blob ? URL.createObjectURL(c.blob) : "";
+    const d = new Date(c.at);
+    openSheet(`<h2>${esc(c.mission)}</h2>
+      <div><span class="pill">${c.grade}학년 코스 · ${esc(c.stage)}</span> <span class="pill">${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}</span> <span class="res ${c.win ? "win" : "lose"}">${c.win ? "성공" : "도전 중"}</span></div>
+      ${url ? `<video class="replay" src="${url}" controls playsinline></video>` : `<p class="note">이 기록에는 영상이 없어.</p>`}
+      ${JumpChallenge.statsHTML(c.stats, c.goal)}
+      ${JumpChallenge.feedbackHTML(c.analysis)}
+      <div class="actions"><button class="btn ghost" id="delClip">이 영상 지우기</button><button class="btn" data-close>닫기</button></div>
+      <span id="delBox"></span>`, (el) => {
+      el.querySelector("#delClip").onclick = () => {
+        el.querySelector("#delBox").innerHTML = `<span class="confirm">정말 지울까? <button class="btn small" id="delYes">지우기</button><button class="btn small ghost" id="delNo">그만두기</button></span>`;
+        el.querySelector("#delYes").onclick = async () => { await JumpClips.remove(id); closeSheet(); renderClips(); toast("영상을 지웠어"); };
+        el.querySelector("#delNo").onclick = () => (el.querySelector("#delBox").innerHTML = "");
+      };
+    });
+    const scrim = $("#scrim");
+    if (scrim && url) new MutationObserver((_, o) => { if (!document.body.contains(scrim)) { URL.revokeObjectURL(url); o.disconnect(); } }).observe(document.body, { childList: true });
+  }
+
   function renderPrefs() {
     const snd = $("#setSound"); const on = state.sound !== false;
     snd.setAttribute("aria-pressed", on); snd.textContent = on ? "켜짐 🔊" : "꺼짐 🔇";
   }
+  $("#safetyAgain").onclick = () => { state.safetyDone = false; save(); toast("다음 도전할 때 안전 수칙을 다시 보여 줄게"); };
   $("#setSound").onclick = () => { state.sound = state.sound === false; save(); renderPrefs(); };
   $("#setReroll").onclick = () => { state.nick = rollNick(); save(); renderAll(); };
   $("#resetBtn").onclick = () => {
@@ -522,7 +567,7 @@
   };
   $("#peek").onchange = (e) => { peek = e.target.checked; renderAlbum(); };
 
-  function renderAll() { renderMe(); renderHello(); renderSummary(); renderAlbum(); renderSettings(); renderPrefs(); }
+  function renderAll() { renderMe(); renderHello(); renderSummary(); renderAlbum(); renderSettings(); renderPrefs(); renderClips(); }
 
   // ---------- 시작 화면 ----------
   function jingle() {

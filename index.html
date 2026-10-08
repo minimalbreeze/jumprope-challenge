@@ -274,13 +274,35 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 .judge-hud{background:#0b1330}
 .judge-hud > *:not(.cam):not(.hud-shade){position:relative;z-index:1}
 .hud-shade{position:absolute;inset:0;background:linear-gradient(180deg,#0b1330aa 0%,#0b133022 30%,#0b133022 55%,#0b1330dd 100%);pointer-events:none}
-.tapzone{width:100%;min-height:22vh;border:4px solid var(--orange-dk);border-radius:24px;cursor:pointer;font-family:var(--font-game);font-size:48px;color:#fff;
-  background:linear-gradient(180deg,#ffb35ccc,#ff7a2fdd);text-shadow:0 3px 0 var(--orange-dk);box-shadow:inset 0 3px 0 #ffe0b8,0 6px 0 var(--orange-dk);
-  display:grid;place-items:center;align-content:center;gap:2px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
-.tapzone small{font-family:var(--font-ui);font-size:15px;text-shadow:none;opacity:.9}
-.tapzone:active{transform:translateY(4px);box-shadow:inset 0 3px 0 #ffe0b8,0 2px 0 var(--orange-dk)}
-.tapzone:disabled{filter:grayscale(.7);opacity:.6}
-.judge-row{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+.judge-row{display:flex;gap:10px;align-items:center;justify-content:space-between}
+.pose{pointer-events:none;background:transparent!important}
+.sim-bg{background:linear-gradient(180deg,#3d5a80,#98c1d9)}
+.body-chip{font-family:var(--font-ui);font-size:15px;color:#fff;background:#0b1330b3;border:2px solid #ffd43b;border-radius:999px;padding:5px 12px}
+.body-chip.ok{border-color:#7dffb0;color:#b2f2bb}
+.startbtn.mini{width:96px;font-size:22px;border-width:4px}
+.loader{width:46px;height:46px;border-radius:50%;border:6px solid var(--gray2);border-top-color:var(--orange2);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.result-win{gap:12px}
+.feedback{display:grid;gap:10px;width:100%;text-align:left}
+.fb{background:var(--win-soft);border-radius:14px;padding:10px 12px;display:grid;gap:6px}
+.fb > b{font-family:var(--font-ui);font-weight:400;font-size:17px;color:var(--navy)}
+.fb ul{margin:0;padding-left:18px}
+.fb p{margin:0;font-size:14px}
+.fb.good{border:2px solid #8ce99a}.fb.fix{border:2px solid #ffc078}
+.fb-item{display:grid;gap:4px;padding-top:6px;border-top:1px dashed var(--gray2)}
+.fb-item:first-of-type{border-top:0;padding-top:0}
+.fb-item strong{font-family:var(--font-ui);font-weight:400;font-size:16px}
+.drill{background:#fff;border-radius:10px;padding:8px 10px;display:grid;gap:2px}
+.drill span{justify-self:start;font-family:var(--font-ui);font-size:12px;color:#fff;background:var(--green);border-radius:6px;padding:0 7px}
+.drill b{font-family:var(--font-ui);font-weight:400;font-size:15px}
+.clip-list{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:8px}
+.clip-row{all:unset;cursor:pointer;box-sizing:border-box;width:100%;display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;background:#fff;border:2px solid var(--gray2);border-radius:14px;padding:8px 10px}
+.clip-row:focus-visible{outline:3px solid var(--blue2)}
+.clip-row .mini-seal{width:56px}
+.clip-row b{display:block;font-family:var(--font-ui);font-weight:400;font-size:15px}
+.clip-row small{color:var(--muted);font-size:12.5px}
+.res{font-family:var(--font-ui);font-size:13px;border-radius:999px;padding:1px 9px;color:#fff}
+.res.win{background:var(--green)}.res.lose{background:var(--gray-dk)}
 .judge-row .gbtn{min-height:52px;font-size:19px}
 .beat{width:70px;height:70px;border-radius:50%;border:5px solid #ffd43b;margin-top:6px}
 .beat.on{animation:beat .35s ease-out}
@@ -384,11 +406,18 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 
   <section id="album" style="display:grid;gap:26px" aria-label="씰 도감"></section>
 
+  <section class="panel clips" id="clipsPanel" hidden>
+    <span class="wtitle">📼 내 영상 · 코치 노트</span>
+    <p class="muted" style="margin:4px 0 0;font-size:13px">도전할 때 찍은 영상과 AI 코치 분석이 이 폰에만 저장돼. 최근 30개까지 보관해.</p>
+    <ul class="clip-list" id="clipList"></ul>
+  </section>
+
   <section class="panel foot" id="settings">
     <span class="wtitle">도감 관리</span>
     <div class="row"><span class="muted">별명</span><b id="setNick" style="font-family:var(--font-ui);font-weight:400;font-size:17px"></b><button class="btn small ghost" id="setReroll">바꾸기 ↻</button></div>
     <div class="row" id="setGrade"><span class="muted">학년</span></div>
     <div class="row"><span class="muted">소리</span><button class="chip" id="setSound" aria-pressed="true">켜짐</button></div>
+    <div class="row"><button class="btn small ghost" id="safetyAgain">안전 수칙 다시 보기</button></div>
     <div class="row"><button class="btn small ghost" id="resetBtn">기록 모두 지우기</button><span id="resetBox"></span></div>
     <div class="row"><label class="muted" style="font-size:13px"><input type="checkbox" id="peek"> 개발용: 못 모은 씰 그림 보기 + 시험용 성공 버튼</label></div>
   </section>
@@ -399,6 +428,8 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 <script src="js/vendor/qrcode.js"></script>
 <script src="js/seals.js"></script>
 <script src="js/identity.js"></script>
+<script src="js/pose.js"></script>
+<script src="js/clips.js"></script>
 <script src="js/challenge.js"></script>
 <script src="js/app.js"></script>
 </body>
