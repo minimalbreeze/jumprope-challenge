@@ -194,7 +194,7 @@
         body += `<p class="note">먼저 위에서 학년을 고르고 도감을 시작해 줘.</p>`;
         actions = `<button class="btn ghost" data-close>닫기</button>`;
       } else if (available(seal)) {
-        body += `<p class="note">퀘스트를 깨면 이 씰을 받아. 폰을 허리 파우치나 지퍼 주머니에 넣고 뛰면 개수를 세 줘.</p>`;
+        body += `<p class="note">퀘스트를 깨면 이 씰을 받아. 어른이나 친구가 폰으로 찍으면서 심판을 봐 줘야 해.</p>`;
         actions = `<button class="btn" id="questBtn">퀘스트 도전! ⚔️</button>${peek ? '<button class="btn ghost" id="winBtn">시험용 성공</button>' : ""}<button class="btn ghost" data-close>닫기</button>`;
       } else if (!unlocked(seal.grade)) {
         body += `<p class="note">🔒 ${seal.grade - 1}학년 코스 씰 5장을 다 모으면 열려.${seal.grade > state.grade ? " 내 학년보다 높은 코스라 반짝이 씰로 나와!" : ""}</p>`;

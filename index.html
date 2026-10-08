@@ -260,6 +260,33 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
   background:linear-gradient(115deg,transparent 30%,#ffffffaa 45%,#ffd6f5 50%,#c8f7ff 55%,transparent 70%);background-size:250% 100%;animation:shine 3s linear infinite}
 @keyframes shine{from{background-position:150% 0}to{background-position:-100% 0}}
 
+
+/* 촬영 심판 화면 */
+.stage-cam{position:fixed;inset:0;background:#0b1330;display:grid;grid-template-rows:1fr auto}
+.cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#0b1330}
+.nocam{display:grid;place-items:center;text-align:center;color:#cfe3ff;font-family:var(--font-ui);font-size:17px;padding:24px}
+.nocam p{margin:0;max-width:26ch}
+.cam-guide{position:absolute;left:50%;top:calc(14px + env(safe-area-inset-top,0px));transform:translateX(-50%);width:min(62vw,300px);height:52vh;border:4px dashed #ffd43bcc;border-radius:28px;display:grid;align-items:start;justify-items:center}
+.cam-guide span{margin-top:10px;font-family:var(--font-ui);font-size:14px;color:#fff;background:#0b1330aa;border-radius:999px;padding:3px 12px;text-align:center;line-height:1.3}
+.cam-bottom{position:relative;grid-row:2;display:grid;justify-items:center;gap:10px;padding:14px 16px calc(18px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,transparent,#0b1330ee 30%)}
+.cam-tip{font-family:var(--font-ui);color:#fff;font-size:16px;text-align:center}
+.cam-bottom .startbtn{width:120px;font-size:30px}
+.judge-hud{background:#0b1330}
+.judge-hud > *:not(.cam):not(.hud-shade){position:relative;z-index:1}
+.hud-shade{position:absolute;inset:0;background:linear-gradient(180deg,#0b1330aa 0%,#0b133022 30%,#0b133022 55%,#0b1330dd 100%);pointer-events:none}
+.tapzone{width:100%;min-height:22vh;border:4px solid var(--orange-dk);border-radius:24px;cursor:pointer;font-family:var(--font-game);font-size:48px;color:#fff;
+  background:linear-gradient(180deg,#ffb35ccc,#ff7a2fdd);text-shadow:0 3px 0 var(--orange-dk);box-shadow:inset 0 3px 0 #ffe0b8,0 6px 0 var(--orange-dk);
+  display:grid;place-items:center;align-content:center;gap:2px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.tapzone small{font-family:var(--font-ui);font-size:15px;text-shadow:none;opacity:.9}
+.tapzone:active{transform:translateY(4px);box-shadow:inset 0 3px 0 #ffe0b8,0 2px 0 var(--orange-dk)}
+.tapzone:disabled{filter:grayscale(.7);opacity:.6}
+.judge-row{display:grid;grid-template-columns:2fr 1fr;gap:10px}
+.judge-row .gbtn{min-height:52px;font-size:19px}
+.beat{width:70px;height:70px;border-radius:50%;border:5px solid #ffd43b;margin-top:6px}
+.beat.on{animation:beat .35s ease-out}
+@keyframes beat{0%{background:#ffd43b;transform:scale(1.25)}100%{background:transparent;transform:none}}
+.replay{width:100%;max-height:46vh;border-radius:14px;background:#000;border:3px solid var(--navy)}
+
 /* 새 씰 연출 */
 .reveal{position:fixed;inset:0;z-index:50;background:radial-gradient(circle,#ffe8a3 0%,#3f5aa8 45%,#141d3d 100%);display:grid;place-items:center;padding:16px}
 .reveal .stage{display:grid;justify-items:center;gap:12px;text-align:center;color:#fff}

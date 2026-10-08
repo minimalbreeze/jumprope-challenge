@@ -6,22 +6,23 @@
  * 그림은 전부 SVG라서 오프라인에서도, 자랑 카드(canvas)에서도 똑같이 나온다.
  */
 (function () {
-  const STAGES = ["연속", "30초 속도", "리듬", "1분 속도", "오래 뛰기"];
-  // 목표 숫자는 임시값. 실제로 뛰어보고 조정한다.
-  const STREAK = [10, 20, 30, 40, 50, 60];
-  const SPEED30 = [20, 30, 40, 50, 55, 60];
-  const RHYTHM = [20, 30, 40, 50, 60, 70];
-  const SPEED60 = [50, 70, 90, 100, 110, 120];
-  const ENDURE = [60, 90, 120, 180, 210, 240];
+  const STAGES = ["연속", "30초 도전", "박자 맞추기", "1분 도전", "오래 뛰기"];
+  // 목표 숫자: 7살·1학년도 처음 몇 단계는 깰 수 있게 낮게 시작해서 학년마다 천천히 올린다. 아직 임시값.
+  const STREAK = [3, 5, 10, 20, 30, 40];      // 안 걸리고 연속
+  const SPEED30 = [5, 10, 20, 30, 40, 50];    // 30초 안에 (걸려도 이어서 셈)
+  const BEAT = [3, 5, 10, 15, 20, 30];        // 박자 소리에 맞춰 연속
+  const BEAT_MS = [1100, 1000, 900, 800, 700, 650];
+  const SPEED60 = [10, 20, 40, 60, 80, 100];  // 1분 안에
+  const ENDURE = [10, 20, 30, 60, 90, 120];   // 안 끊기고 오래 (초)
   const mmss = (s) => (s >= 60 ? `${Math.floor(s / 60)}분${s % 60 ? ` ${s % 60}초` : ""}` : `${s}초`);
   function goalOf(g, s) {
     const i = g - 1;
     switch (s) {
-      case 1: return { type: "streak", n: STREAK[i], limit: 90, text: `안 끊기고 연속 ${STREAK[i]}개` };
+      case 1: return { type: "streak", n: STREAK[i], limit: 120, text: `안 걸리고 연속 ${STREAK[i]}개` };
       case 2: return { type: "speed", sec: 30, n: SPEED30[i], text: `30초 안에 ${SPEED30[i]}개` };
-      case 3: return { type: "rhythm", n: RHYTHM[i], limit: 120, text: `고른 박자로 ${RHYTHM[i]}개` };
+      case 3: return { type: "beat", n: BEAT[i], beat: BEAT_MS[i], limit: 120, text: `"콩" 소리에 맞춰 ${BEAT[i]}개` };
       case 4: return { type: "speed", sec: 60, n: SPEED60[i], text: `1분 안에 ${SPEED60[i]}개` };
-      default: return { type: "endure", sec: ENDURE[i], limit: ENDURE[i] + 90, text: `${mmss(ENDURE[i])} 동안 안 끊기고` };
+      default: return { type: "endure", sec: ENDURE[i], limit: ENDURE[i] + 120, text: `${mmss(ENDURE[i])} 동안 안 끊기고` };
     }
   }
 
