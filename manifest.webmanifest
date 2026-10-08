@@ -1,0 +1,17 @@
+{
+  "name": "줄넘기 등급 챌린지",
+  "short_name": "줄넘기 챌린지",
+  "description": "퀘스트를 깨고 씰 30장을 모아 줄넘기왕이 되자! 초등학생 줄넘기 씰 도감.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#5ebcff",
+  "theme_color": "#5ebcff",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
