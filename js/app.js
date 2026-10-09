@@ -2,12 +2,14 @@
 (function () {
   const { SEALS, METAL, metalOf, sealSVG } = window.JumpSeals;
   const SITE_URL = "https://minimalbreeze.github.io/jumprope-challenge/";
-  const KEY = "jumprope:state";
-  const ADJ = ["날쌘", "통통", "씩씩한", "반짝", "폴짝", "힘찬", "용감한", "신나는", "재빠른", "뽀송"];
-  const ANI = ["토끼", "펭귄", "판다", "여우", "돌고래", "다람쥐", "고양이", "강아지", "치타", "개구리"];
+  const KEY = "jumprope:state";          // 예전(한 명) 기록. 지우지 않고 첫 아이로 옮겨 쓴다.
+  const KEY_P = "jumprope:profiles";     // 아이 여러 명 기록
+  const MAX_KIDS = 5;
+  const ADJ = ["날쌘", "통통", "씩씩한", "반짝", "폴짝", "힘찬", "용감한", "신나는", "재빠른", "뽀송", "튼튼한", "꼬마"];
+  const ANI = ["토끼", "펭귄", "판다", "여우", "돌고래", "다람쥐", "고양이", "강아지", "치타", "개구리", "사자", "공룡"];
+  const AVATARS = [0, 1, 5, 6, 7, 8, 11, 21, 23, 29]; // 고를 수 있는 내 캐릭터 (씰 캐릭터 번호)
   const $ = (s) => document.querySelector(s);
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
-  const rollNick = () => pick(ADJ) + " " + pick(ANI);
   const pad = (n) => String(n).padStart(2, "0");
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -15,12 +17,25 @@
     ? location.origin + location.pathname : SITE_URL;
 
   // ---------- 상태 ----------
-  function load() {
-    try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.v === 1) return s; } catch (e) {}
-    return { v: 1, nick: "", grade: 0, seals: {}, reps: [], cards: {}, sound: true };
+  const blank = () => ({ id: "k" + Date.now().toString(36), keyName: "", nick: "", grade: 0, avatar: 0, seals: {}, reps: [], cards: {}, sound: true });
+  function loadStore() {
+    try { const s = JSON.parse(localStorage.getItem(KEY_P)); if (s && s.v === 2 && Array.isArray(s.list)) return s; } catch (e) {}
+    const st = { v: 2, active: "", list: [] };
+    try { // 예전 한 명 기록이 있으면 첫 아이로 (도감 번호도 그대로)
+      const old = JSON.parse(localStorage.getItem(KEY));
+      if (old && old.v === 1 && old.grade) { const kid = { ...blank(), ...old, id: "k1", keyName: "device", avatar: old.avatar || 0 }; delete kid.v; st.list.push(kid); st.active = kid.id; }
+    } catch (e) {}
+    return st;
   }
-  let state = load();
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+  const store = loadStore();
+  let state = store.list.find((k) => k.id === store.active) || store.list[0] || blank();
+  const save = () => {
+    if (state.grade && !store.list.includes(state)) store.list.push(state);
+    if (state.grade) store.active = state.id;
+    try { localStorage.setItem(KEY_P, JSON.stringify(store)); } catch (e) {}
+  };
+  const avatarOf = (k) => SEALS[AVATARS.includes(k.avatar) ? k.avatar : 0];
+  const avatarSVG = (k) => window.JumpSeals.jumperSVG(avatarOf(k), { still: true });
   let me = { id: "" };
   let filter = "all", peek = false;
 
@@ -66,14 +81,76 @@
     const chip = $("#meChip");
     if (!state.grade) { chip.hidden = true; return; }
     chip.hidden = false;
-    chip.innerHTML = `<span class="lv">${state.grade}학년</span><b>${esc(state.nick)}</b>${me.id ? `<span class="idtag">#${me.id}</span>` : ""}`;
+    chip.innerHTML = `<span class="me-av">${avatarSVG(state)}</span><span class="lv">${state.grade}학년</span><b>${esc(state.nick)}</b>${me.id ? `<span class="idtag">#${me.id}</span>` : ""}<span class="swap" aria-hidden="true">⇄</span>`;
+    chip.setAttribute("role", "button"); chip.tabIndex = 0;
+    chip.setAttribute("aria-label", `${state.nick}, 다른 아이로 바꾸기`);
+    chip.onclick = openKids; chip.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openKids(); } };
   }
 
-  let draft = { grade: 0, nick: rollNick() };
+  // ---------- 아이 여러 명 ----------
+  function kidCards(onPick, withAdd) {
+    return store.list.map((k) => `<button class="kid-card${k === state ? " on" : ""}" data-kid="${k.id}">
+        <span class="kid-av">${avatarSVG(k)}</span><b>${esc(k.nick)}</b><small>${k.grade}학년 · 씰 ${Object.keys(k.seals).length}/30</small></button>`).join("") +
+      (withAdd && store.list.length < MAX_KIDS ? `<button class="kid-card add" data-kid="new"><span class="kid-av plus">＋</span><b>아이 추가</b><small>형제·친구</small></button>` : "");
+  }
+  function wireKidCards(root, after) {
+    root.querySelectorAll("[data-kid]").forEach((b) => (b.onclick = () => { b.dataset.kid === "new" ? addKid() : switchKid(b.dataset.kid); after && after(); }));
+  }
+  function openKids() {
+    openSheet(`<h2>누가 할래?</h2><div class="kid-grid">${kidCards(null, true)}</div><div class="actions"><button class="btn ghost" data-close>닫기</button></div>`,
+      (el) => wireKidCards(el, closeSheet));
+  }
+  async function switchKid(id) {
+    const k = store.list.find((x) => x.id === id); if (!k) return;
+    state = k; store.active = id; save();
+    me = await JumpID.init(state.keyName);
+    filter = "all"; renderAll(); scrollTo(0, 0);
+    toast(`${state.nick}의 도감이야!`);
+  }
+  function addKid() {
+    if (store.list.length >= MAX_KIDS) { toast(`아이는 ${MAX_KIDS}명까지 등록할 수 있어`); return; }
+    state = blank(); draft = { grade: 0, nick: "", avatar: AVATARS[store.list.length % AVATARS.length] };
+    me = { id: "" }; renderAll();
+    setTimeout(() => $("#hello").scrollIntoView({ block: "start" }), 50);
+  }
+
+  // ---------- 별명·캐릭터 고르기 ----------
+  /** el 안에 별명 고르기를 그린다. 앞 말 + 뒤 말을 눌러 만들거나 직접 쓴다. onChange(nick) */
+  function mountNickPicker(el, nick, onChange) {
+    const parts = (nick || "").split(" ");
+    let a = ADJ.includes(parts[0]) ? parts[0] : "", b = ANI.includes(parts[1]) ? parts[1] : "";
+    let custom = nick && !(a && b && parts.length === 2) ? nick : "";
+    const draw = () => {
+      const value = custom || (a && b ? `${a} ${b}` : "");
+      el.innerHTML = `<div class="np">
+        <div class="np-preview">${value ? esc(value) : '<span class="muted">아래에서 골라 봐!</span>'}</div>
+        <div class="np-label">① 앞 말</div><div class="np-row">${ADJ.map((w) => `<button class="chip" data-a="${w}" aria-pressed="${!custom && a === w}">${w}</button>`).join("")}</div>
+        <div class="np-label">② 뒤 말</div><div class="np-row">${ANI.map((w) => `<button class="chip" data-b="${w}" aria-pressed="${!custom && b === w}">${w}</button>`).join("")}</div>
+        <label class="np-custom">또는 직접 쓰기 <input id="npInput" maxlength="8" placeholder="예: 콩콩왕" value="${esc(custom)}"></label>
+        <small class="muted">진짜 이름은 친구에게 자랑할 때 보일 수 있어. 별명을 추천해!</small></div>`;
+      el.querySelectorAll("[data-a]").forEach((x) => (x.onclick = () => { a = x.dataset.a; custom = ""; draw(); onChange(b ? `${a} ${b}` : ""); }));
+      el.querySelectorAll("[data-b]").forEach((x) => (x.onclick = () => { b = x.dataset.b; custom = ""; draw(); onChange(a ? `${a} ${b}` : ""); }));
+      const inp = el.querySelector("#npInput");
+      inp.oninput = () => {
+        custom = inp.value.replace(/[<>]/g, "").trim();
+        el.querySelector(".np-preview").innerHTML = custom ? esc(custom) : (a && b ? esc(`${a} ${b}`) : '<span class="muted">아래에서 골라 봐!</span>');
+        el.querySelectorAll("[data-a],[data-b]").forEach((x) => x.setAttribute("aria-pressed", !custom && (x.dataset.a === a || x.dataset.b === b)));
+        onChange(custom || (a && b ? `${a} ${b}` : ""));
+      };
+    };
+    draw();
+  }
+  function mountAvatarPicker(el, cur, onChange) {
+    el.innerHTML = `<div class="av-grid">${AVATARS.map((i) => `<button class="av${i === cur ? " on" : ""}" data-av="${i}" aria-label="${SEALS[i].animal}" aria-pressed="${i === cur}">${window.JumpSeals.jumperSVG(SEALS[i], { still: true })}</button>`).join("")}</div>`;
+    el.querySelectorAll("[data-av]").forEach((x) => (x.onclick = () => { onChange(+x.dataset.av); mountAvatarPicker(el, +x.dataset.av, onChange); }));
+  }
+
+  let draft = { grade: 0, nick: "", avatar: 0 };
   function renderHello() {
     const box = $("#hello");
     box.hidden = !!state.grade;
     if (state.grade) return;
+    $("#helloTitle").textContent = store.list.length ? "새 친구를 등록하자!" : "반가워! 씰 도감을 만들자";
     const row = $("#gradeChips");
     row.querySelectorAll("button").forEach((b) => b.remove());
     for (let g = 1; g <= 6; g++) {
@@ -82,14 +159,30 @@
       b.onclick = () => { draft.grade = g; renderHello(); };
       row.appendChild(b);
     }
-    $("#nickPreview").textContent = draft.nick;
-    $("#startBtn").disabled = !draft.grade;
+    if (!$("#nickBox").dataset.ready) {
+      $("#nickBox").dataset.ready = "1";
+      mountNickPicker($("#nickBox"), draft.nick, (n) => { draft.nick = n; updateStart(); });
+      mountAvatarPicker($("#avBox"), draft.avatar, (i) => { draft.avatar = i; });
+    }
+    $("#cancelAdd").hidden = !store.list.length;
+    updateStart();
   }
-  $("#reroll").onclick = () => { draft.nick = rollNick(); renderHello(); };
-  $("#startBtn").onclick = () => {
-    state.grade = draft.grade; state.nick = draft.nick; save(); renderAll();
+  function updateStart() {
+    const ok = draft.grade && draft.nick;
+    $("#startBtn").disabled = !ok;
+    $("#startHint").textContent = !draft.grade ? "학년을 골라 줘" : !draft.nick ? "별명을 만들어 줘" : `"${draft.nick}"(으)로 시작할까?`;
+  }
+  $("#startBtn").onclick = async () => {
+    state.grade = draft.grade; state.nick = draft.nick; state.avatar = draft.avatar;
+    // 처음 등록하는 아이는 이 폰의 기존 열쇠("device")를, 그다음 아이부터는 자기 열쇠를 쓴다
+    state.keyName = store.list.some((k) => k.keyName === "device") ? "kid:" + state.id : "device";
+    save();
+    me = await JumpID.init(state.keyName);
+    $("#nickBox").dataset.ready = ""; draft = { grade: 0, nick: "", avatar: 0 };
+    renderAll();
     toast("1학년 코스 1단계부터 시작! 하나씩 깨면 다음 단계가 열려");
   };
+  $("#cancelAdd").onclick = () => { $("#nickBox").dataset.ready = ""; switchKid(store.active || store.list[0].id); };
 
   // ---------- 요약 ----------
   function stats(seals) {
@@ -219,7 +312,7 @@
           sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade,
           firstTime: !state.safetyDone,
           onSafetyDone: () => { state.safetyDone = true; save(); },
-          onSaved: renderClips,
+          onSaved: renderClips, pid: state.id,
           onClear: () => award(no),
         });
       });
@@ -516,10 +609,12 @@
     }
   }
   // ---------- 내 영상 ----------
+  // 아이 표시가 없는 예전 영상은 예전 기록을 옮겨 받은 첫 아이 것으로 본다
+  const clipOwner = (c) => c.pid || (store.list.find((k) => k.keyName === "device") || {}).id;
   async function renderClips() {
     const panel = $("#clipsPanel");
     if (!state.grade || !window.JumpClips) { panel.hidden = true; return; }
-    const list = await JumpClips.list();
+    const list = (await JumpClips.list()).filter((c) => clipOwner(c) === state.id);
     panel.hidden = !list.length;
     $("#clipList").innerHTML = list.map((c) => {
       const d = new Date(c.at), when = `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -559,7 +654,32 @@
   }
   $("#safetyAgain").onclick = () => { state.safetyDone = false; save(); toast("다음 도전할 때 안전 수칙을 다시 보여 줄게"); };
   $("#setSound").onclick = () => { state.sound = state.sound === false; save(); renderPrefs(); };
-  $("#setReroll").onclick = () => { state.nick = rollNick(); save(); renderAll(); };
+  $("#setReroll").onclick = () => {
+    let nick = state.nick, av = AVATARS.includes(state.avatar) ? state.avatar : 0;
+    openSheet(`<h2>별명·캐릭터 바꾸기</h2><div id="eNick" style="width:100%"></div><div id="eAv" style="width:100%"></div>
+      <div class="actions"><button class="btn" id="eSave">저장</button><button class="btn ghost" data-close>그만두기</button></div>`, (el) => {
+      mountNickPicker(el.querySelector("#eNick"), nick, (n) => (nick = n));
+      mountAvatarPicker(el.querySelector("#eAv"), av, (i) => (av = i));
+      el.querySelector("#eSave").onclick = () => {
+        if (!nick) { toast("별명을 만들어 줘"); return; }
+        state.nick = nick; state.avatar = av; save(); closeSheet(); renderAll(); toast("바꿨어!");
+      };
+    });
+  };
+  $("#delKid").onclick = () => {
+    $("#delKidBox").innerHTML = `<span class="confirm">${esc(state.nick)}의 씰·카드·영상이 모두 사라져. 정말 지울까? <button class="btn small" id="delKidYes">지우기</button><button class="btn small ghost" id="delKidNo">그만두기</button></span>`;
+    $("#delKidNo").onclick = () => ($("#delKidBox").innerHTML = "");
+    $("#delKidYes").onclick = async () => {
+      const gone = state;
+      try { for (const c of await JumpClips.list()) if (clipOwner(c) === gone.id) await JumpClips.remove(c.id); } catch (e) {}
+      if (gone.keyName && gone.keyName !== "device") JumpID.forget(gone.keyName);
+      store.list = store.list.filter((k) => k !== gone);
+      $("#delKidBox").innerHTML = "";
+      if (store.list.length) await switchKid(store.list[0].id);
+      else { store.active = ""; try { localStorage.setItem(KEY_P, JSON.stringify(store)); } catch (e) {} state = blank(); me = { id: "" }; renderAll(); }
+      toast(`${gone.nick}을(를) 지웠어`);
+    };
+  };
   $("#resetBtn").onclick = () => {
     $("#resetBox").innerHTML = `<span class="confirm">씰 ${Object.keys(state.seals).length}장이 전부 사라져. 정말 지울까? <button class="btn small" id="resetYes">지우기</button><button class="btn small ghost" id="resetNo">그만두기</button></span>`;
     $("#resetYes").onclick = () => { state.seals = {}; state.reps = []; save(); $("#resetBox").innerHTML = ""; renderAll(); toast("기록을 지웠어"); };
@@ -586,23 +706,24 @@
     const cast = [[SEALS[5], 0.72, 0.1], [SEALS[11], 0.86, 0.45], [window.JumpSeals.COACH, 0.8, 0], [SEALS[22], 0.76, 0.3], [SEALS[29], 0.9, 0.6]];
     $("#tStage").innerHTML = cast.map(([c, dur, delay], i) =>
       `<div class="jm${i === 2 ? " coach" : ""}">${window.JumpSeals.jumperSVG(c, { dur, delay, still })}</div>`).join("");
-    const save = $("#tSave");
-    if (state.grade) {
-      $("#tStart").innerHTML = "이어<br>하기";
-      save.hidden = false;
-      save.textContent = `${state.nick} · ${state.grade}학년 · 씰 ${Object.keys(state.seals).length}/30장`;
-    }
+    const pick = $("#tKids");
+    if (store.list.length) {
+      $("#tStart").hidden = true;
+      pick.hidden = false;
+      pick.innerHTML = `<div class="t-who">누가 할래?</div><div class="kid-row">${kidCards(null, true)}</div>`;
+    } else { $("#tStart").hidden = false; pick.hidden = true; }
     box.hidden = false;
     document.documentElement.style.overflow = "hidden";
-    const btn = $("#tStart");
-    btn.focus();
-    btn.onclick = () => {
+    const leave = () => {
       if (state.sound !== false) jingle();
       box.classList.add("leave");
       document.documentElement.style.overflow = "";
       setTimeout(() => { box.hidden = true; box.classList.remove("leave"); $("#tStage").innerHTML = ""; }, 460);
-      if (!state.grade) setTimeout(() => $("#hello").scrollIntoView({ block: "start" }), 50);
     };
+    if (store.list.length) wireKidCards(pick, leave);
+    const btn = $("#tStart");
+    btn.onclick = () => { leave(); setTimeout(() => $("#hello").scrollIntoView({ block: "start" }), 50); };
+    (store.list.length ? pick.querySelector(".kid-card") : btn).focus();
   }
 
   // ---------- 시작 ----------
@@ -610,7 +731,7 @@
     const d = new URLSearchParams(location.search).get("d");
     renderAll();
     if (!d) showTitle();
-    me = await JumpID.init();
+    me = await JumpID.init(state.keyName || "device");
     renderMe();
     if (d) {
       try { showViewer(await JumpID.open(d), false); }

@@ -370,7 +370,7 @@
       const stats = { count: S.count, best: S.best, breaks: S.breaks.length, endure: Math.round(S.endureBest), dur: Math.round(dur / 1000) };
       let saved = false;
       try {
-        await JumpClips.save({ at: new Date().toISOString(), sealNo: seal.no, mission: seal.mission, stage: seal.stageName, grade: seal.grade, win, stats, analysis, goal: g.type, blob, mime: blob ? blob.type : "" });
+        await JumpClips.save({ pid: cur.opts.pid, at: new Date().toISOString(), sealNo: seal.no, mission: seal.mission, stage: seal.stageName, grade: seal.grade, win, stats, analysis, goal: g.type, blob, mime: blob ? blob.type : "" });
         saved = true;
       } catch (e) {}
       cur.opts.onSaved && cur.opts.onSaved();

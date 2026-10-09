@@ -527,7 +527,7 @@ ${stars}
   }
 
   /** 안내 캐릭터 (콩콩 코치) */
-  const COACH = { name: "콩콩 코치", kind: "rabbit", body: "#fff7f2", eyes: "sparkle", mouth: "open", rope: "#ff6f61", acc: ["coachcap", "whistle"] };
+  const COACH = { name: "콩콩 코치", kind: "rabbit", body: "#fff7f2", eyes: "sparkle", mouth: "open", rope: "#ff6f61", acc: ["coachcap"] };
   function coachSVG() {
     const uid = "c" + ++uidN + "_";
     return `<svg viewBox="-55 -62 110 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><radialGradient id="${uid}b" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="${COACH.body}"/><stop offset="1" stop-color="${shade(COACH.body, -0.14)}"/></radialGradient></defs>${character(COACH, uid)}</svg>`;

@@ -9,7 +9,7 @@
  * 한계: 서버가 없어서 씰 기록 자체가 진짜로 뛰어서 딴 건지까지는 보장하지 못한다.
  */
 (function () {
-  const DB = "jumprope", STORE = "keys", KEY_ID = "device";
+  const DB = "jumprope", STORE = "keys";
   const ALPHA = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const enc = new TextEncoder(), dec = new TextDecoder();
 
@@ -60,23 +60,42 @@
     return out.slice(0, 4) + "-" + out.slice(4, 8);
   }
 
-  let me = null; // { priv, pubRaw, pubB64, id }
-  async function init() {
-    if (me) return me;
+  // 아이마다 열쇠를 따로 둔다(도감 번호가 아이마다 다름). 처음 만든 열쇠 이름은 "device".
+  const cache = {};
+  let current = "device";
+  async function init(name) {
+    if (name) current = name;
+    if (cache[current]) return cache[current];
+    let m;
     try {
-      let rec = await idbGet(KEY_ID);
+      let rec = await idbGet(current);
       if (!rec) {
         const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, ["sign", "verify"]);
         const pubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
         rec = { priv: kp.privateKey, pubRaw };
-        await idbPut(KEY_ID, rec);
+        await idbPut(current, rec);
       }
       const pubRaw = new Uint8Array(rec.pubRaw);
-      me = { priv: rec.priv, pubRaw, pubB64: b64u.from(pubRaw), id: await fingerprint(pubRaw) };
+      m = { priv: rec.priv, pubRaw, pubB64: b64u.from(pubRaw), id: await fingerprint(pubRaw), name: current };
     } catch (e) {
-      me = { priv: null, pubRaw: null, pubB64: "", id: "", error: String(e) };
+      m = { priv: null, pubRaw: null, pubB64: "", id: "", name: current, error: String(e) };
     }
-    return me;
+    return (cache[current] = m);
+  }
+  /** 이 폰에 있는 모든 열쇠의 공개 열쇠 → 열쇠 이름 */
+  async function localKeys() {
+    try {
+      const db = await idb();
+      return await new Promise((res) => {
+        const out = {}, r = db.transaction(STORE).objectStore(STORE).openCursor();
+        r.onsuccess = () => { const c = r.result; if (!c) return res(out); out[b64u.from(new Uint8Array(c.value.pubRaw))] = c.key; c.continue(); };
+        r.onerror = () => res(out);
+      });
+    } catch (e) { return {}; }
+  }
+  async function forget(name) {
+    delete cache[name];
+    try { const db = await idb(); await new Promise((res) => { const t = db.transaction(STORE, "readwrite"); t.objectStore(STORE).delete(name); t.oncomplete = res; t.onerror = res; }); } catch (e) {}
   }
 
   async function deflate(bytes) {
@@ -122,9 +141,10 @@
         } catch (e) { status = "bad"; }
       }
     }
-    const m = await init();
-    return { payload, status, id, mine: status === "ok" && !!m.pubB64 && m.pubB64 === payload.k };
+    const keys = await localKeys();
+    const mineKey = status === "ok" && payload.k ? keys[payload.k] || "" : "";
+    return { payload, status, id, mine: !!mineKey, mineKey };
   }
 
-  window.JumpID = { init, seal, open };
+  window.JumpID = { init, seal, open, forget };
 })();

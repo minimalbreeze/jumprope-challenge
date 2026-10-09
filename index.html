@@ -6,9 +6,9 @@
 <title>줄넘기 등급 챌린지</title>
 <meta name="description" content="초등학생 줄넘기 씰 도감. 퀘스트를 깨고 씰을 모으고, 친구한테 자랑해요.">
 <meta name="theme-color" content="#5ebcff">
-<link rel="manifest" href="manifest.webmanifest?v=2">
-<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=2">
-<link rel="apple-touch-icon" href="icon-180.png?v=2">
+<link rel="manifest" href="manifest.webmanifest?v=3">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=3">
+<link rel="apple-touch-icon" href="icon-180.png?v=3">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="줄넘기 챌린지">
@@ -316,6 +316,39 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 @keyframes beat{0%{background:#ffd43b;transform:scale(1.25)}100%{background:transparent;transform:none}}
 .replay{width:100%;max-height:46vh;border-radius:14px;background:#000;border:3px solid var(--navy)}
 
+
+/* 아이 여러 명 · 별명/캐릭터 고르기 */
+.step{display:grid;gap:6px}
+.step > b{font-family:var(--font-ui);font-weight:400;font-size:17px;color:var(--navy)}
+.np{display:grid;gap:6px}
+.np-preview{font-family:var(--font-game);font-size:30px;color:var(--orange2);background:var(--win-soft);border:2px dashed var(--gold);border-radius:14px;padding:6px 12px;text-align:center;min-height:56px}
+.np-preview .muted{font-family:var(--font-ui);font-size:16px}
+.np-label{font-family:var(--font-ui);font-size:14px;color:var(--muted)}
+.np-row{display:flex;flex-wrap:wrap;gap:6px}
+.np-custom{font-family:var(--font-ui);font-size:14px;color:var(--muted);display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.np-custom input{font:inherit;font-size:16px;color:var(--ink);border:2px solid var(--navy);border-radius:10px;padding:5px 10px;width:10em;max-width:100%;background:#fff}
+.av-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.av{all:unset;cursor:pointer;border-radius:14px;border:2.5px solid var(--gray2);background:#fff;padding:2px;box-sizing:border-box}
+.av svg{width:100%;display:block}
+.av.on{border-color:var(--orange2);background:#fff4e6;box-shadow:0 3px 0 var(--orange-dk)}
+.av:focus-visible,.kid-card:focus-visible,.me:focus-visible{outline:3px solid var(--blue2);outline-offset:2px}
+.me{cursor:pointer}
+.me .me-av{width:30px;height:30px;display:block}
+.me .me-av svg{width:100%;height:100%;display:block}
+.me .swap{color:var(--muted);font-size:14px}
+.kid-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;width:100%}
+.kid-row{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 8px;max-width:calc(100vw - 32px);scroll-snap-type:x mandatory}
+.kid-card{all:unset;cursor:pointer;box-sizing:border-box;flex:0 0 104px;scroll-snap-align:start;display:grid;justify-items:center;gap:2px;background:#fffdf5;border:3px solid var(--navy);border-radius:16px;padding:6px 6px 8px;box-shadow:0 4px 0 var(--navy-dk);text-align:center}
+.kid-card.on{border-color:var(--orange2);box-shadow:0 4px 0 var(--orange-dk)}
+.kid-card .kid-av{width:72px;height:72px;display:grid;place-items:center}
+.kid-card .kid-av svg{width:100%;height:100%;display:block}
+.kid-card .plus{font-family:var(--font-game);font-size:40px;color:var(--navy);background:var(--win-soft);border-radius:50%}
+.kid-card b{font-family:var(--font-ui);font-weight:400;font-size:15px;line-height:1.2;color:var(--ink)}
+.kid-card small{font-size:11.5px;color:var(--muted)}
+.kid-card.add{border-style:dashed}
+.t-kids{display:grid;justify-items:center;gap:6px}
+.t-who{font-family:var(--font-game);font-size:22px;color:#fff;-webkit-text-stroke:3px var(--navy);paint-order:stroke fill;text-shadow:0 3px 0 var(--navy-dk)}
+
 /* 새 씰 연출 */
 .reveal{position:fixed;inset:0;z-index:50;background:radial-gradient(circle,#ffe8a3 0%,#3f5aa8 45%,#141d3d 100%);display:grid;place-items:center;padding:16px}
 .reveal .stage{display:grid;justify-items:center;gap:12px;text-align:center;color:#fff}
@@ -370,8 +403,8 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
   <div class="t-ground" aria-hidden="true"></div>
   <div class="t-bottom">
     <button class="startbtn t-start" id="tStart">게임<br>시작</button>
-    <div class="t-save" id="tSave" hidden></div>
-    <small class="t-note">🔊 소리가 나요</small>
+    <div class="t-kids" id="tKids" hidden></div>
+        <small class="t-note">🔊 소리가 나요</small>
   </div>
 </section>
 <div class="wrap" id="app">
@@ -382,11 +415,11 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 
   <section class="panel hello" id="hello" hidden>
     <span class="wtitle">새 모험가 등록</span>
-    <h2>반가워! 씰 도감을 만들자</h2>
-    <div class="row" id="gradeChips"><span class="muted">몇 학년이야?</span></div>
-    <div class="row"><span class="muted">별명</span><span class="nick" id="nickPreview"></span><button class="btn small ghost" id="reroll">다른 별명 ↻</button></div>
-    <p class="muted" style="margin:0;font-size:13px">진짜 이름 대신 별명을 써. 친구한테 자랑할 때 이 별명이 보여.</p>
-    <div><button class="btn" id="startBtn" disabled>모험 시작!</button></div>
+    <h2 id="helloTitle">반가워! 씰 도감을 만들자</h2>
+    <div class="step"><b>1. 몇 학년이야?</b><div class="row" id="gradeChips"></div></div>
+    <div class="step"><b>2. 내 별명을 만들자</b><div id="nickBox"></div></div>
+    <div class="step"><b>3. 내 캐릭터를 골라!</b><div id="avBox"></div></div>
+    <div class="row"><button class="btn" id="startBtn" disabled>모험 시작!</button><button class="btn ghost" id="cancelAdd" hidden>그만두기</button><span class="muted" id="startHint" style="font-size:14px"></span></div>
   </section>
 
   <section class="panel summary" id="summary">
@@ -421,11 +454,12 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 
   <section class="panel foot" id="settings">
     <span class="wtitle">도감 관리</span>
-    <div class="row"><span class="muted">별명</span><b id="setNick" style="font-family:var(--font-ui);font-weight:400;font-size:17px"></b><button class="btn small ghost" id="setReroll">바꾸기 ↻</button></div>
+    <div class="row"><span class="muted">별명</span><b id="setNick" style="font-family:var(--font-ui);font-weight:400;font-size:17px"></b><button class="btn small ghost" id="setReroll">별명·캐릭터 바꾸기</button></div>
     <div class="row" id="setGrade"><span class="muted">학년</span></div>
     <div class="row"><span class="muted">소리</span><button class="chip" id="setSound" aria-pressed="true">켜짐</button></div>
     <div class="row"><button class="btn small ghost" id="safetyAgain">안전 수칙 다시 보기</button></div>
     <div class="row"><button class="btn small ghost" id="resetBtn">기록 모두 지우기</button><span id="resetBox"></span></div>
+    <div class="row"><button class="btn small ghost" id="delKid">이 아이 지우기</button><span id="delKidBox"></span></div>
     <div class="row"><label class="muted" style="font-size:13px"><input type="checkbox" id="peek"> 개발용: 못 모은 씰 그림 보기 + 시험용 성공 버튼</label></div>
   </section>
 
