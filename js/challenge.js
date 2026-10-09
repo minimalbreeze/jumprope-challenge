@@ -45,6 +45,7 @@
   }
   async function openCamera() {
     if (stream) return true;
+    if (JumpPose.SIM) { stream = JumpPose.simStream(); return true; } // 개발용 가짜 영상
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
@@ -91,10 +92,10 @@
     return `<div class="npc"><div class="npc-face">${JumpSeals.coachSVG()}</div><div class="npc-talk"><span class="npc-name">콩콩 코치</span><p>${text}</p></div></div>`;
   }
   const ruleText = (g) => ({
-    streak: `줄에 안 걸리고 <b>연속 ${g.n}개</b>를 뛰면 성공! 멈추면 0부터 다시 세.`,
-    speed: `<b>${g.sec}초 동안 ${g.n}개 이상</b> 뛰면 성공! 걸려도 괜찮아, 다시 뛰면 이어서 세.`,
-    beat: `"콩, 콩" 소리가 날 때마다 한 번씩 뛰어. 소리에 맞춰 <b>${g.n}개</b>를 이어서 뛰면 성공!`,
-    endure: `<b>${fmtLong(g.sec)} 동안</b> 안 멈추고 계속 뛰면 성공! 천천히 뛰어도 돼.`,
+    streak: `줄에 안 걸리고 <b>연속 ${g.n}개</b>를 뛰면 성공! 줄에 걸리거나 멈추면 <b>탈락</b>이야.`,
+    speed: `<b>${g.sec}초 동안 ${g.n}개 이상</b> 뛰면 성공! 걸려도 다시 뛰면 이어서 세. 줄을 넘은 것만 세.`,
+    beat: `"콩, 콩" 소리가 날 때마다 한 번씩 뛰어. 소리에 맞춰 <b>${g.n}개</b>를 이어서 뛰면 성공! 걸리거나 멈추면 <b>탈락</b>.`,
+    endure: `<b>${fmtLong(g.sec)} 동안</b> 안 걸리고 계속 뛰면 성공! 줄에 걸리거나 멈추면 <b>탈락</b>.`,
   }[g.type]);
 
   // ---------- 1. 퀘스트 창 ----------
@@ -111,7 +112,7 @@
         <div class="quest-goal"><span class="tag">목표</span><strong>${esc(seal.mission)}</strong><p>${ruleText(seal.goal)}</p></div>
         <div class="quest-reward"><span class="tag">보상</span><div class="reward-seal">${JumpSeals.sealSVG(seal, { empty: true })}</div><small>${holo ? "✨ 반짝이 씰" : "씰 1장"}</small></div>
       </div>
-      <p class="parent-note" style="text-align:center">📹 누군가 폰으로 찍어 주기만 하면 <b>AI 코치가 자동으로 세고 판정</b>해. 뛰는 사람은 폰을 들지 않아!</p>
+      <p class="parent-note" style="text-align:center">📹 누군가 폰으로 찍어 주기만 하면 <b>AI 코치가 자동으로 세고 판정</b>해. <b>줄을 넘은 점프만</b> 세니까 줄 없이 뛰면 안 돼!</p>
       <div class="qbtns"><button class="gbtn" data-go="${opts.firstTime ? "safety" : "camera"}">도전할래!</button><button class="gbtn gray" data-go="close">다음에</button></div>
     </div>`;
     wire();
@@ -196,9 +197,8 @@
   async function camera() {
     unlockAudio();
     layer.innerHTML = `<div class="qwin pop center"><div class="qwin-title">AI 코치 준비 중…</div>${npc("카메라를 써도 되는지 물어보면 <b>허용</b>을 눌러 줘! 처음엔 준비하는 데 조금 걸려.")}<div class="loader" aria-hidden="true"></div></div>`;
-    const sim = JumpPose.SIM;
-    const [camOk, model] = await Promise.all([sim ? Promise.resolve(false) : openCamera(), JumpPose.load().catch(() => null)]);
-    if (!model || (!camOk && !sim)) {
+    const [camOk, model] = await Promise.all([openCamera(), JumpPose.load().catch(() => null)]);
+    if (!model || !camOk) {
       layer.innerHTML = `<div class="qwin pop center"><div class="qwin-title">앗, 준비가 안 됐어</div>
         ${npc(!model ? "AI 코치를 불러오지 못했어. 인터넷 연결을 확인하고 다시 해 볼래?" : "카메라를 못 켰어. 카메라 권한을 <b>허용</b>했는지 확인해 줘. (브라우저 주소창 옆 설정에서 바꿀 수 있어)")}
         <div class="qbtns"><button class="gbtn" data-go="camera">다시 해 보기</button><button class="gbtn gray" data-go="close">닫기</button>${cur.opts.dev ? `<button class="gbtn blue" data-go="dev-clear">개발용: 성공 처리</button>` : ""}</div></div>`;
@@ -246,8 +246,8 @@
     el("hBig").textContent = "";
     el("hSub").textContent = "아이가 머리부터 발끝까지 보이게 찍어 줘";
 
-    const det = new JumpPose.JumpDetector();
-    const S = { count: 0, combo: 0, best: 0, breaks: [], contStart: 0, endureBest: 0, lastJump: 0, lastSeen: 0, beatK: -1 };
+    const det = new JumpPose.JumpDetector(), rope = new JumpPose.RopeSensor();
+    const S = { count: 0, combo: 0, best: 0, breaks: [], contStart: 0, endureBest: 0, lastJump: 0, lastSeen: 0, beatK: -1, lastTry: 0, ropeOk: 0, ropeMiss: 0, noRope: 0 };
     let phase = "ready", t0 = 0, seenSince = 0, beatT = 0, beatStart = 0, raf = 0;
 
     let lock = null;
@@ -259,6 +259,15 @@
     const bigVal = () => (g.type === "speed" ? S.count : S.combo);
 
     function onJump(j) {
+      // 줄 확인: 이번 점프 사이에 줄이 지나간 흔적이 있어야 센다. 줄이 한 번 확인된 뒤 한 번 놓친 건 봐준다.
+      const seen = rope.passed(S.lastTry || j.t - 900, j.t);
+      S.lastTry = j.t;
+      if (seen) { S.ropeMiss = 0; S.ropeOk++; } else S.ropeMiss++;
+      if (!(seen || (S.ropeMiss === 1 && S.ropeOk > 0))) {
+        S.noRope++;
+        if (g.type === "speed") { showJudge("줄이 안 보여!", "ms"); beep(220, 0.15, 0.15, "sawtooth"); return; }
+        return finish(false, "줄넘기 줄이 안 보였어. 줄을 돌려서 넘어야 인정돼!");
+      }
       S.count++;
       if (g.type === "beat") {
         const k = Math.round((j.t - beatStart) / g.beat), diff = Math.abs(j.t - (beatStart + k * g.beat));
@@ -275,6 +284,8 @@
     }
     function onBreak(t, why) {
       S.breaks.push(t - t0);
+      // 연속·박자·오래 뛰기는 걸리거나 멈추면 바로 탈락. 30초·1분 도전은 개수 미션이라 이어서 센다.
+      if (g.type !== "speed") { beep(220, 0.25, 0.18, "sawtooth"); return finish(false, why === "화면 밖으로 나갔어!" ? "화면 밖으로 나갔어. 머리부터 발끝까지 보이는 자리에서 뛰어 줘!" : "줄에 걸렸거나 멈췄어. 탈락! 다시 도전해 보자"); }
       if (g.type !== "speed") { S.combo = 0; if (g.type !== "endure") el("hBig").textContent = "0"; }
       S.contStart = 0; S.beatK = -1;
       showJudge(why, "ms"); beep(220, 0.25, 0.18, "sawtooth");
@@ -283,6 +294,7 @@
     let broke = false;
     const stopTrack = JumpPose.track(v, (t, lm) => {
       const r = det.feed(t, lm);
+      rope.feed(t, lm, v, phase === "wait" || phase === "count");
       drawPose(cv, v, lm, r.visible);
       const chip = el("hBody");
       if (r.visible) { S.lastSeen = t; if (!seenSince) seenSince = t; chip.textContent = "✔ 몸이 다 보여요"; chip.className = "body-chip ok"; }
@@ -367,6 +379,7 @@
       const dur = performance.now() - t0;
       const jumps = det.jumps.filter((j) => j.t >= t0);
       const analysis = JumpPose.analyze(jumps, S.breaks, dur);
+      if (S.noRope >= Math.max(2, (S.count + S.noRope) * 0.15)) analysis.issues.unshift({ key: "rope", title: "줄이 안 보였어", detail: `줄을 넘지 않은 점프가 ${S.noRope}번 있었어. 줄 없이 뛰었거나, 줄이 화면에 잘 안 잡혔어.`, drill: { name: "줄 잘 보이게 찍기", how: "밝은 곳에서, 바닥·벽과 색이 다른 줄로 해 봐. 머리 위와 발밑까지 화면에 다 나오게 찍어 줘." } });
       const stats = { count: S.count, best: S.best, breaks: S.breaks.length, endure: Math.round(S.endureBest), dur: Math.round(dur / 1000) };
       let saved = false;
       try {

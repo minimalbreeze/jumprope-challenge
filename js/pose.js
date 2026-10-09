@@ -50,23 +50,98 @@
     return () => { stop = true; cancelAnimationFrame(raf); };
   }
 
-  // 개발용 가짜 사람: window.__simJump = true 면 1초에 2번 뛰고, false 면 가만히 서 있다.
+  // 개발용 가짜 사람 영상: window.__simJump = true 면 1초에 2번 뛰고, window.__simRope = true 면 줄도 돌린다.
+  // 화면(캔버스)에 실제로 그려서 카메라 대신 쓰므로, 줄 감지·녹화까지 그대로 확인할 수 있다.
+  let simCanvas = null, simLm = null;
+  function simStream() {
+    if (!simCanvas) { simCanvas = document.createElement("canvas"); simCanvas.width = 360; simCanvas.height = 640; drawSim(0); }
+    return simCanvas.captureStream(30);
+  }
+  let noise = null;
+  function drawSim(t) {
+    if (!simCanvas) return;
+    const ph = (t % 500) / 500, jumping = !!window.__simJump;
+    const lift = jumping ? Math.max(0, Math.sin(ph * Math.PI * 2)) * 0.05 : 0;
+    const n = () => (Math.random() - 0.5) * 0.004;
+    const P = (x, y) => ({ x: x + n(), y: y - lift + n(), z: 0, visibility: 0.99 });
+    const lm = [];
+    for (let i = 0; i < 33; i++) lm[i] = P(0.5, 0.3);
+    lm[0] = P(0.5, 0.28); lm[11] = P(0.44, 0.4); lm[12] = P(0.56, 0.4);
+    lm[13] = P(0.38, 0.52); lm[14] = P(0.62, 0.52); lm[15] = P(0.33, 0.62); lm[16] = P(0.67, 0.62);
+    lm[23] = P(0.47, 0.65); lm[24] = P(0.53, 0.65); lm[25] = P(0.47, 0.8); lm[26] = P(0.53, 0.8);
+    lm[27] = P(0.47, 0.95); lm[28] = P(0.53, 0.95);
+    simLm = lm;
+    const W = simCanvas.width, H = simCanvas.height, x = simCanvas.getContext("2d");
+    if (!noise) { // 바닥·벽 무늬 (고정)
+      noise = document.createElement("canvas"); noise.width = W; noise.height = H;
+      const c = noise.getContext("2d"), g = c.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, "#9fb8c9"); g.addColorStop(0.75, "#c8d3d9"); g.addColorStop(0.76, "#8a7a66"); g.addColorStop(1, "#6f604f");
+      c.fillStyle = g; c.fillRect(0, 0, W, H);
+      for (let i = 0; i < 1500; i++) { c.fillStyle = `rgba(0,0,0,${Math.random() * 0.12})`; c.fillRect(Math.random() * W, Math.random() * H, 2, 2); }
+    }
+    x.drawImage(noise, 0, 0);
+    const X = (p) => p.x * W, Y = (p) => p.y * H;
+    x.strokeStyle = "#2b2f45"; x.lineCap = "round"; x.lineWidth = 14;
+    [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]].forEach(([a, b]) => { x.beginPath(); x.moveTo(X(lm[a]), Y(lm[a])); x.lineTo(X(lm[b]), Y(lm[b])); x.stroke(); });
+    x.fillStyle = "#f2c9a8"; x.beginPath(); x.arc(X(lm[0]), Y(lm[0]), 26, 0, 7); x.fill();
+    if (window.__simRope) { // 줄: 몸이 떠 있을 때 발밑, 내려올 때 머리 위
+      const cy = (Y(lm[15]) + Y(lm[16])) / 2 + Math.cos((ph - 0.25) * Math.PI * 2) * H * 1.0;
+      x.strokeStyle = "#e8484a"; x.lineWidth = 4; x.beginPath(); x.moveTo(X(lm[15]), Y(lm[15])); x.quadraticCurveTo(W / 2, cy, X(lm[16]), Y(lm[16])); x.stroke();
+    }
+  }
   function simulate(onFrame) {
-    const t0 = performance.now();
-    const iv = setInterval(() => {
-      const t = performance.now(), ph = ((t - t0) % 500) / 500;
-      const lift = window.__simJump ? Math.max(0, Math.sin(ph * Math.PI * 2)) * 0.05 : 0;
-      const n = () => (Math.random() - 0.5) * 0.004;
-      const P = (x, y) => ({ x: x + n(), y: y - lift + n(), z: 0, visibility: 0.99 });
-      const lm = [];
-      for (let i = 0; i < 33; i++) lm[i] = P(0.5, 0.2);
-      lm[0] = P(0.5, 0.18); lm[11] = P(0.45, 0.3); lm[12] = P(0.55, 0.3);
-      lm[13] = P(0.42, 0.42); lm[14] = P(0.58, 0.42); lm[15] = P(0.4, 0.52); lm[16] = P(0.6, 0.52);
-      lm[23] = P(0.47, 0.55); lm[24] = P(0.53, 0.55); lm[25] = P(0.47, 0.7); lm[26] = P(0.53, 0.7);
-      lm[27] = P(0.47, 0.85); lm[28] = P(0.53, 0.85);
-      onFrame(t, lm);
-    }, 33);
+    if (!simCanvas) simStream();
+    const iv = setInterval(() => { const t = performance.now(); drawSim(t); onFrame(t, simLm); }, 33);
     return () => clearInterval(iv);
+  }
+
+  // ---------- 줄 감지 ----------
+  // 줄을 돌리면 "다리 양옆 아래"와 "머리 위"에 줄이 지나가며 화면이 바뀐다. 줄 없이 뛰면 그 자리는 그대로다.
+  // 프레임끼리 그 자리의 밝기 차이를 보고, 시작 전 가만히 있을 때(기준값)보다 확실히 크면 "줄이 지나갔다"로 본다.
+  // 화면 끝의 빈 곳(C)도 같이 재서 폰이 흔들려 생긴 변화는 뺀다. 기준값은 초기값이다.
+  class RopeSensor {
+    constructor() { this.cvs = {}; this.prev = {}; this.hist = []; this.base = []; this.anchor = null; }
+    energy(k, video, rx, ry, rw, rh, vw, vh) {
+      const x0 = Math.max(0, rx), y0 = Math.max(0, ry), x1 = Math.min(vw, rx + rw), y1 = Math.min(vh, ry + rh);
+      const w = x1 - x0, h = y1 - y0;
+      if (w < 6 || h < 6) return 0;
+      const sw = Math.max(8, Math.round(Math.min(w, 80))), sh = Math.max(8, Math.min(120, Math.round((h * sw) / w)));
+      const cv = this.cvs[k] || (this.cvs[k] = document.createElement("canvas"));
+      if (cv.width !== sw || cv.height !== sh) { cv.width = sw; cv.height = sh; this.prev[k] = null; }
+      const c = cv.getContext("2d", { willReadFrequently: true });
+      c.drawImage(video, x0, y0, w, h, 0, 0, sw, sh);
+      const d = c.getImageData(0, 0, sw, sh).data, g = new Uint8Array(sw * sh);
+      for (let i = 0, j = 0; j < g.length; i += 4, j++) g[j] = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
+      const p = this.prev[k]; this.prev[k] = g;
+      if (!p || p.length !== g.length) return 0;
+      let n = 0;
+      for (let j = 0; j < g.length; j++) if (Math.abs(g[j] - p[j]) > 22) n++;
+      return n / g.length;
+    }
+    /** 프레임마다 호출. calibrate=true 면 시작 전 기준값으로 모은다. */
+    feed(t, lm, video, calibrate) {
+      if (!video || !video.videoWidth || !JumpDetector.fullBody(lm)) return;
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const sy = ((lm[11].y + lm[12].y) / 2) * vh, ay = Math.max(lm[27].y, lm[28].y) * vh;
+      const cur = { axL: Math.min(lm[27].x, lm[28].x) * vw, axR: Math.max(lm[27].x, lm[28].x) * vw, ky: Math.min(lm[25].y, lm[26].y) * vh, ay, nx: lm[0].x * vw, ny: lm[0].y * vh, S: Math.max(40, ay - sy) };
+      if (!this.anchor) this.anchor = { ...cur };
+      else for (const k in cur) this.anchor[k] += (cur[k] - this.anchor[k]) * 0.08; // 천천히 따라가서 뛰는 동안 자리가 흔들리지 않게
+      const A = this.anchor;
+      const bands = {
+        L: [A.axL - 0.42 * A.S, A.ky, 0.3 * A.S, A.ay - A.ky + 0.1 * A.S],
+        R: [A.axR + 0.12 * A.S, A.ky, 0.3 * A.S, A.ay - A.ky + 0.1 * A.S],
+        T: [A.nx - 0.35 * A.S, A.ny - 0.5 * A.S, 0.7 * A.S, 0.32 * A.S],
+        C: [0, vh * 0.35, vw * 0.1, vh * 0.3],
+      };
+      const e = {};
+      for (const k in bands) { const [x, y, w, h] = bands[k]; e[k] = this.energy(k, video, x, y, w, h, vw, vh); }
+      const v = Math.max(0, Math.max(e.L, e.R, e.T) - e.C);
+      this.hist.push({ t, v }); while (this.hist.length && t - this.hist[0].t > 6000) this.hist.shift();
+      if (calibrate) { this.base.push(v); if (this.base.length > 120) this.base.shift(); }
+    }
+    threshold() { return Math.max(0.012, median(this.base) * 3 + 0.006); }
+    /** t1~t2 사이에 줄이 지나간 흔적이 있었나 */
+    passed(t1, t2) { const th = this.threshold(); return this.hist.some((h) => h.t >= t1 - 150 && h.t <= t2 + 80 && h.v > th); }
   }
 
   // ---------- 점프 세기 ----------
@@ -174,5 +249,5 @@
     return { metrics: m, good: good.slice(0, 3), issues: issues.slice(0, 3) };
   }
 
-  window.JumpPose = { load, track, JumpDetector, analyze, SIM };
+  window.JumpPose = { load, track, JumpDetector, RopeSensor, analyze, simStream, SIM };
 })();
