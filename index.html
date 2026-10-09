@@ -349,6 +349,27 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 .t-kids{display:grid;justify-items:center;gap:6px}
 .t-who{font-family:var(--font-game);font-size:22px;color:#fff;-webkit-text-stroke:3px var(--navy);paint-order:stroke fill;text-shadow:0 3px 0 var(--navy-dk)}
 
+
+/* 아래 메뉴 */
+.pane{display:grid;gap:22px}
+.pane-title{font-family:var(--font-game);font-size:26px;color:#fff;-webkit-text-stroke:3px var(--navy);paint-order:stroke fill;text-shadow:0 3px 0 var(--navy-dk)}
+body.has-nav .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.bnav{position:fixed;left:0;right:0;bottom:0;z-index:15;display:grid;grid-template-columns:repeat(5,1fr);
+  background:var(--navy);border-top:3px solid var(--gold);padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 14px #1d2a5244}
+.bnav button{all:unset;cursor:pointer;display:grid;justify-items:center;gap:1px;padding:4px 0;border-radius:12px;color:#c9d4f5;font-family:var(--font-ui);font-size:13px}
+.bnav button span{font-size:22px;line-height:1.1}
+.bnav button[aria-current="page"]{background:#ffffff1f;color:var(--gold)}
+.bnav button:focus-visible{outline:3px solid var(--gold)}
+.next-quest{display:grid;grid-template-columns:110px 1fr;gap:14px;align-items:center}
+.next-quest .nq-seal{width:110px}
+.next-quest .nq-seal svg{width:100%;display:block;filter:drop-shadow(0 4px 0 #0002)}
+.next-quest h3{font-family:var(--font-game);font-size:22px;color:var(--navy)}
+.next-quest p{margin:2px 0 8px;font-size:14px;color:var(--muted)}
+.next-quest .btn{font-size:20px}
+.last-note{display:grid;gap:6px}
+.last-note b{font-family:var(--font-ui);font-weight:400;font-size:16px}
+.empty-note{text-align:center;color:var(--muted);margin:8px 0}
+
 /* 새 씰 연출 */
 .reveal{position:fixed;inset:0;z-index:50;background:radial-gradient(circle,#ffe8a3 0%,#3f5aa8 45%,#141d3d 100%);display:grid;place-items:center;padding:16px}
 .reveal .stage{display:grid;justify-items:center;gap:12px;text-align:center;color:#fff}
@@ -422,6 +443,8 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
     <div class="row"><button class="btn" id="startBtn" disabled>모험 시작!</button><button class="btn ghost" id="cancelAdd" hidden>그만두기</button><span class="muted" id="startHint" style="font-size:14px"></span></div>
   </section>
 
+  <div class="pane" id="pane-home">
+  <section class="panel next-quest" id="nextQuest"></section>
   <section class="panel summary" id="summary">
     <span class="wtitle">내 씰 도감</span>
     <div>
@@ -437,6 +460,11 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
       <button class="btn" id="shareBtn">자랑하기 📣</button>
     </div>
   </section>
+  <section class="panel last-note" id="lastNote" hidden></section>
+  </div>
+
+  <div class="pane" id="pane-album" hidden>
+  <h2 class="pane-title">📖 씰 도감</h2>
 
   <nav class="tabs" id="tabs" aria-label="도감 보기">
     <button class="chip" data-f="all" aria-pressed="true">전체</button>
@@ -445,13 +473,26 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
   </nav>
 
   <section id="album" style="display:grid;gap:26px" aria-label="씰 도감"></section>
+  </div>
 
-  <section class="panel clips" id="clipsPanel" hidden>
+  <div class="pane" id="pane-cards" hidden>
+  <h2 class="pane-title">🃏 시크릿 카드</h2>
+  <section id="cards" aria-label="시크릿 카드"></section>
+  </div>
+
+  <div class="pane" id="pane-clips" hidden>
+  <h2 class="pane-title">📼 내 영상</h2>
+
+  <section class="panel clips" id="clipsPanel">
     <span class="wtitle">📼 내 영상 · 코치 노트</span>
     <p class="muted" style="margin:4px 0 0;font-size:13px">도전할 때 찍은 영상과 AI 코치 분석이 이 폰에만 저장돼. 최근 30개까지 보관해.</p>
     <ul class="clip-list" id="clipList"></ul>
   </section>
 
+  </div>
+
+  <div class="pane" id="pane-settings" hidden>
+  <h2 class="pane-title">⚙️ 설정</h2>
   <section class="panel foot" id="settings">
     <span class="wtitle">도감 관리</span>
     <div class="row"><span class="muted">별명</span><b id="setNick" style="font-family:var(--font-ui);font-weight:400;font-size:17px"></b><button class="btn small ghost" id="setReroll">별명·캐릭터 바꾸기</button></div>
@@ -463,8 +504,18 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
     <div class="row"><label class="muted" style="font-size:13px"><input type="checkbox" id="peek"> 개발용: 못 모은 씰 그림 보기 + 시험용 성공 버튼</label></div>
   </section>
 
+  </div>
+
   <section id="viewer" class="viewer" hidden></section>
 </div>
+
+<nav class="bnav" id="bnav" aria-label="메뉴" hidden>
+  <button data-pane="home" aria-current="page"><span aria-hidden="true">🏠</span>홈</button>
+  <button data-pane="album"><span aria-hidden="true">📖</span>도감</button>
+  <button data-pane="cards"><span aria-hidden="true">🃏</span>카드</button>
+  <button data-pane="clips"><span aria-hidden="true">📼</span>영상</button>
+  <button data-pane="settings"><span aria-hidden="true">⚙️</span>설정</button>
+</nav>
 
 <script src="js/vendor/qrcode.js"></script>
 <script src="js/seals.js"></script>

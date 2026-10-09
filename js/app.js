@@ -104,7 +104,7 @@
     const k = store.list.find((x) => x.id === id); if (!k) return;
     state = k; store.active = id; save();
     me = await JumpID.init(state.keyName);
-    filter = "all"; renderAll(); scrollTo(0, 0);
+    filter = "all"; pane = "home"; renderAll(); scrollTo(0, 0);
     toast(`${state.nick}의 도감이야!`);
   }
   function addKid() {
@@ -197,9 +197,7 @@
     return r.length ? r : Object.keys(state.seals).map(Number).sort((a, b) => b - a).slice(0, 3);
   }
   function renderSummary() {
-    const show = !!state.grade;
-    $("#summary").hidden = !show; $("#settings").hidden = !show;
-    if (!show) return;
+    if (!state.grade) return;
     const st = stats(state.seals);
     $("#cnt").textContent = st.n;
     $("#barFill").style.width = (st.n / 30) * 100 + "%";
@@ -242,21 +240,25 @@
         <header><h3>${g}학년 코스<span class="metal ${metalOf(g)}">${METAL[metalOf(g)].label}</span></h3><span class="state">${state_}</span></header>
         <div class="cells">${cells}</div></article>`;
     }
-    if (filter !== "need") {
-      const cards = [1, 2, 3, 4, 5, 6].map((g) => { const own = courseDone(g);
-        return `<button class="cell card-cell" data-card="${g}" aria-label="${own ? `${g}학년 클리어 카드 보기` : `${g}학년 시크릿 카드: 아직 잠김`}"><span class="${own ? "holo-card" : ""}" style="display:block;width:100%">${window.JumpSeals.courseCardSVG(g, own ? cardInfo(g) : {}, !own)}</span><small>${own ? `${g}학년 클리어` : "???"}</small></button>`; }).join("");
-      html += `<article class="panel course secret"><span class="wtitle">🔒 시크릿 카드 ${stats(state.seals).done} / 6</span>
+    box.innerHTML = html || `<p class="panel muted" style="margin:0">${filter === "have" ? "아직 모은 씰이 없어. 1단계부터 도전해 봐!" : "30장 다 모았어! 도감 완성 🎉"}</p>`;
+    box.querySelectorAll(".cell").forEach((b) => (b.onclick = () => openSeal(+b.dataset.no)));
+  }
+  function renderCards() {
+    const box = $("#cards");
+    if (!state.grade) return;
+    let html = "";
+    const cards = [1, 2, 3, 4, 5, 6].map((g) => { const own = courseDone(g);
+      return `<button class="cell card-cell" data-card="${g}" aria-label="${own ? `${g}학년 클리어 카드 보기` : `${g}학년 시크릿 카드: 아직 잠김`}"><span class="${own ? "holo-card" : ""}" style="display:block;width:100%">${window.JumpSeals.courseCardSVG(g, own ? cardInfo(g) : {}, !own)}</span><small>${own ? `${g}학년 클리어` : "???"}</small></button>`; }).join("");
+    html += `<article class="panel course secret"><span class="wtitle">🔒 시크릿 카드 ${stats(state.seals).done} / 6</span>
         <p class="muted" style="margin:4px 0 0;font-size:13px;text-align:center">학년 코스 씰 5장을 다 모으면 그 학년의 시크릿 카드가 열려.</p>
         <div class="card-grid">${cards}</div>
         <button class="cell secret-cell" id="masterCell" aria-label="${state.master ? "마스터 카드 보기" : "마스터 카드: 아직 잠김"}">
           <span class="${state.master ? "holo-card" : ""}" style="display:block;width:100%">${window.JumpSeals.masterSVG(state.master ? masterInfo() : {}, !state.master)}</span>
           <small>${state.master ? "👑 마스터 카드" : "마지막 카드: 30장을 모두 모으면 열려"}</small>
         </button></article>`;
-    }
-    box.innerHTML = html || `<p class="panel muted" style="margin:0">${filter === "have" ? "아직 모은 씰이 없어. 1단계부터 도전해 봐!" : "30장 다 모았어! 도감 완성 🎉"}</p>`;
+    box.innerHTML = html;
     const mc = $("#masterCell"); mc && (mc.onclick = openMaster);
     box.querySelectorAll("[data-card]").forEach((b) => (b.onclick = () => openCard(+b.dataset.card)));
-    box.querySelectorAll(".cell").forEach((b) => (b.onclick = () => openSeal(+b.dataset.no)));
   }
   $("#tabs").addEventListener("click", (e) => {
     const b = e.target.closest("[data-f]"); if (!b) return;
@@ -264,6 +266,63 @@
     $("#tabs").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b));
     renderAlbum();
   });
+
+  function startQuest(no) {
+    JumpChallenge.start(sealByNo(no), {
+      sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade,
+      firstTime: !state.safetyDone,
+      onSafetyDone: () => { state.safetyDone = true; save(); },
+      onSaved: () => { renderClips(); renderLastNote(); }, pid: state.id,
+      onClear: () => award(no),
+    });
+  }
+
+  // ---------- 아래 메뉴 ----------
+  let pane = "home";
+  function showPane(p) {
+    pane = p;
+    document.querySelectorAll(".pane").forEach((el) => (el.hidden = el.id !== "pane-" + p));
+    document.querySelectorAll("#bnav [data-pane]").forEach((b) => (b.dataset.pane === p ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current")));
+    scrollTo(0, 0);
+  }
+  function renderNav() {
+    const on = !!state.grade && $("#viewer").hidden;
+    $("#bnav").hidden = !on;
+    document.body.classList.toggle("has-nav", on);
+    if (on) showPane(pane); else document.querySelectorAll(".pane").forEach((el) => (el.hidden = true));
+  }
+  $("#bnav").addEventListener("click", (e) => { const b = e.target.closest("[data-pane]"); if (b) showPane(b.dataset.pane); });
+
+  // ---------- 홈: 오늘의 도전 ----------
+  function renderNext() {
+    const box = $("#nextQuest");
+    if (!state.grade) return;
+    const next = SEALS.find(available);
+    if (!next) {
+      box.innerHTML = `<span class="wtitle">오늘의 도전</span><div class="nq-seal">${window.JumpSeals.masterSVG(state.master ? masterInfo() : {}, !state.master)}</div>
+        <div><h3>씰 30장 완성!</h3><p>모든 퀘스트를 깼어. 진짜 줄넘기왕이야!</p><button class="btn" id="nqCards">카드 보러 가기</button></div>`;
+      $("#nqCards").onclick = () => showPane("cards");
+      return;
+    }
+    box.innerHTML = `<span class="wtitle">오늘의 도전</span>
+      <div class="nq-seal">${sealSVG(next, { empty: true })}</div>
+      <div><h3>${esc(next.mission)}</h3><p>${next.grade}학년 코스 ${"★".repeat(next.stage)} · ${next.stageName}</p>
+      <button class="btn" id="nqGo">퀘스트 도전! ⚔️</button></div>`;
+    $("#nqGo").onclick = () => startQuest(next.no);
+  }
+  async function renderLastNote() {
+    const box = $("#lastNote");
+    if (!state.grade || !window.JumpClips) { box.hidden = true; return; }
+    const c = (await JumpClips.list()).find((x) => clipOwner(x) === state.id);
+    const it = c && c.analysis && c.analysis.issues && c.analysis.issues[0];
+    if (!c) { box.hidden = true; return; }
+    box.hidden = false;
+    box.innerHTML = `<span class="wtitle">📝 지난번 코치 노트</span>
+      <b>${esc(c.mission)} · ${c.win ? "성공" : "도전 중"} (${c.stats.count}개)</b>
+      ${it ? `<p class="muted" style="margin:0">오늘의 연습: <b style="font-size:15px">${esc(it.drill.name)}</b> — ${esc(it.drill.how)}</p>` : `<p class="muted" style="margin:0">고칠 점이 없었어! 다음 단계에 도전해 봐.</p>`}
+      <div><button class="btn small ghost" id="lnOpen">영상과 노트 보기</button></div>`;
+    $("#lnOpen").onclick = () => openClip(c.id);
+  }
 
   // ---------- 씰 상세 ----------
   function openSeal(no) {
@@ -306,16 +365,7 @@
         save(); closeSheet(); renderSummary(); toast(i >= 0 ? "대표 씰에서 내렸어" : "대표 씰로 걸었어");
       });
       const q = el.querySelector("#questBtn");
-      q && (q.onclick = () => {
-        closeSheet();
-        JumpChallenge.start(seal, {
-          sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade,
-          firstTime: !state.safetyDone,
-          onSafetyDone: () => { state.safetyDone = true; save(); },
-          onSaved: renderClips, pid: state.id,
-          onClear: () => award(no),
-        });
-      });
+      q && (q.onclick = () => { closeSheet(); startQuest(no); });
       const win = el.querySelector("#winBtn");
       win && (win.onclick = () => { closeSheet(); award(no); });
     });
@@ -555,7 +605,7 @@
   // ---------- 공유 링크로 들어온 화면 ----------
   let clockT;
   function showViewer(res, preview) {
-    ["#hello", "#summary", "#tabs", "#album", "#settings", "#clipsPanel"].forEach((s) => ($(s).hidden = true));
+    $("#hello").hidden = true; document.querySelectorAll(".pane").forEach((el) => (el.hidden = true)); $("#bnav").hidden = true; document.body.classList.remove("has-nav");
     const v = $("#viewer"); v.hidden = false;
     const p = res.payload, seals = decodeSeals(p.c || ""), st = stats(seals);
     const verify = res.status === "ok"
@@ -592,7 +642,7 @@
     const tick = () => { const c = $("#clock"); if (!c) return; const d = new Date(); c.textContent = `지금 확인 중 ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; };
     tick(); clockT = setInterval(tick, 1000);
     const back = $("#backBtn");
-    back && (back.onclick = () => { clearInterval(clockT); v.hidden = true; v.innerHTML = ""; $("#tabs").hidden = false; $("#album").hidden = false; renderAll(); scrollTo(0, 0); });
+    back && (back.onclick = () => { clearInterval(clockT); v.hidden = true; v.innerHTML = ""; renderAll(); scrollTo(0, 0); });
     scrollTo(0, 0);
   }
 
@@ -613,9 +663,9 @@
   const clipOwner = (c) => c.pid || (store.list.find((k) => k.keyName === "device") || {}).id;
   async function renderClips() {
     const panel = $("#clipsPanel");
-    if (!state.grade || !window.JumpClips) { panel.hidden = true; return; }
+    if (!state.grade || !window.JumpClips) return;
     const list = (await JumpClips.list()).filter((c) => clipOwner(c) === state.id);
-    panel.hidden = !list.length;
+    if (!list.length) { $("#clipList").innerHTML = `<li class="empty-note">아직 영상이 없어. 퀘스트에 도전하면 여기에 영상과 코치 노트가 쌓여!</li>`; return; }
     $("#clipList").innerHTML = list.map((c) => {
       const d = new Date(c.at), when = `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       const issue = c.analysis && c.analysis.issues && c.analysis.issues[0];
@@ -687,7 +737,7 @@
   };
   $("#peek").onchange = (e) => { peek = e.target.checked; renderAlbum(); };
 
-  function renderAll() { renderMe(); renderHello(); renderSummary(); renderAlbum(); renderSettings(); renderPrefs(); renderClips(); }
+  function renderAll() { renderMe(); renderHello(); renderSummary(); renderNext(); renderAlbum(); renderCards(); renderSettings(); renderPrefs(); renderClips(); renderLastNote(); renderNav(); }
 
   // ---------- 시작 화면 ----------
   function jingle() {
