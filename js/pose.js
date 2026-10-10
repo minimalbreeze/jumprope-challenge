@@ -53,14 +53,29 @@
   // 개발용 가짜 사람 영상: window.__simJump = true 면 1초에 2번 뛰고, window.__simRope = true 면 줄도 돌린다.
   // 화면(캔버스)에 실제로 그려서 카메라 대신 쓰므로, 줄 감지·녹화까지 그대로 확인할 수 있다.
   let simCanvas = null, simLm = null;
+  let simAudio = null, lastPh = 0;
   function simStream() {
     if (!simCanvas) { simCanvas = document.createElement("canvas"); simCanvas.width = 360; simCanvas.height = 640; drawSim(0); }
-    return simCanvas.captureStream(30);
+    const st = simCanvas.captureStream(30);
+    try { // 줄이 바닥을 치는 "탁" 소리도 가짜로 만든다
+      const ac = new (window.AudioContext || window.webkitAudioContext)(), dest = ac.createMediaStreamDestination();
+      simAudio = { ac, dest };
+      dest.stream.getAudioTracks().forEach((tr) => st.addTrack(tr));
+    } catch (e) {}
+    return st;
+  }
+  function simClick() {
+    if (!simAudio) return;
+    const { ac, dest } = simAudio, len = Math.floor(ac.sampleRate * 0.02), b = ac.createBuffer(1, len, ac.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len / 5)) * 0.8;
+    const src = ac.createBufferSource(); src.buffer = b; src.connect(dest); src.start();
   }
   let noise = null;
   function drawSim(t) {
     if (!simCanvas) return;
     const ph = (t % 500) / 500, jumping = !!window.__simJump;
+    if (jumping && window.__simRope && ph < lastPh) simClick(); // 발이 떨어지는 순간 줄이 바닥을 친다
+    lastPh = ph;
     const lift = jumping ? Math.max(0, Math.sin(ph * Math.PI * 2)) * 0.05 : 0;
     const n = () => (Math.random() - 0.5) * 0.004;
     const P = (x, y) => ({ x: x + n(), y: y - lift + n(), z: 0, visibility: 0.99 });
@@ -95,57 +110,43 @@
     return () => clearInterval(iv);
   }
 
-  // ---------- 줄 감지 ----------
-  // 줄을 돌리면 "다리 양옆 아래"와 "머리 위"에 줄이 지나가며 화면이 바뀐다. 줄 없이 뛰면 그 자리는 그대로다.
-  // 프레임끼리 그 자리의 밝기 차이를 보고, 시작 전 가만히 있을 때(기준값)보다 확실히 크면 "줄이 지나갔다"로 본다.
-  // 화면 끝의 빈 곳(C)도 같이 재서 폰이 흔들려 생긴 변화는 뺀다. 기준값은 초기값이다.
-  class RopeSensor {
-    constructor() { this.cvs = {}; this.prev = {}; this.hist = []; this.base = []; this.anchor = null; }
-    energy(k, video, rx, ry, rw, rh, vw, vh) {
-      const x0 = Math.max(0, rx), y0 = Math.max(0, ry), x1 = Math.min(vw, rx + rw), y1 = Math.min(vh, ry + rh);
-      const w = x1 - x0, h = y1 - y0;
-      if (w < 6 || h < 6) return 0;
-      const sw = Math.max(8, Math.round(Math.min(w, 80))), sh = Math.max(8, Math.min(120, Math.round((h * sw) / w)));
-      const cv = this.cvs[k] || (this.cvs[k] = document.createElement("canvas"));
-      if (cv.width !== sw || cv.height !== sh) { cv.width = sw; cv.height = sh; this.prev[k] = null; }
-      const c = cv.getContext("2d", { willReadFrequently: true });
-      c.drawImage(video, x0, y0, w, h, 0, 0, sw, sh);
-      const d = c.getImageData(0, 0, sw, sh).data, g = new Uint8Array(sw * sh);
-      for (let i = 0, j = 0; j < g.length; i += 4, j++) g[j] = (d[i] * 3 + d[i + 1] * 6 + d[i + 2]) / 10;
-      const p = this.prev[k]; this.prev[k] = g;
-      if (!p || p.length !== g.length) return 0;
-      let n = 0;
-      for (let j = 0; j < g.length; j++) if (Math.abs(g[j] - p[j]) > 22) n++;
-      return n / g.length;
+  // ---------- 줄 소리 듣기 ----------
+  // 줄넘기 줄이 바닥을 치면 짧고 높은 "탁" 소리가 난다. 마이크 소리에서 높은 소리만 걸러(1.8kHz 이상)
+  // 갑자기 커지는 순간을 "탁"으로 기록한다. 점프 사이(발이 떨어질 때쯤)에 "탁"이 있으면 줄을 넘은 것으로 본다.
+  // 앱이 내는 소리(삑, 음성)는 hush()로 잠깐 무시한다. 기준값은 초기값이다.
+  class RopeEar {
+    constructor(stream) {
+      this.ok = false; this.onsets = [];
+      const tracks = stream && stream.getAudioTracks ? stream.getAudioTracks() : [];
+      if (!tracks.length) return;
+      try {
+        this.ac = new (window.AudioContext || window.webkitAudioContext)();
+        this.ac.resume && this.ac.resume();
+        const src = this.ac.createMediaStreamSource(stream), hp = this.ac.createBiquadFilter();
+        hp.type = "highpass"; hp.frequency.value = 1800;
+        this.an = this.ac.createAnalyser(); this.an.fftSize = 512;
+        src.connect(hp).connect(this.an);
+        this.buf = new Float32Array(this.an.fftSize);
+        this.floor = 0.002; this.prev = 0; this.last = 0; this.mute = 0; this.ok = true;
+        this.iv = setInterval(() => this.tick(), 10);
+      } catch (e) { this.ok = false; }
     }
-    /** 프레임마다 호출. calibrate=true 면 시작 전 기준값으로 모은다. */
-    feed(t, lm, video, calibrate) {
-      if (!video || !video.videoWidth || !JumpDetector.fullBody(lm)) return;
-      const vw = video.videoWidth, vh = video.videoHeight;
-      const sy = ((lm[11].y + lm[12].y) / 2) * vh, ay = Math.max(lm[27].y, lm[28].y) * vh;
-      const cur = { axL: Math.min(lm[27].x, lm[28].x) * vw, axR: Math.max(lm[27].x, lm[28].x) * vw, ky: Math.min(lm[25].y, lm[26].y) * vh, ay, nx: lm[0].x * vw, ny: lm[0].y * vh, S: Math.max(40, ay - sy) };
-      if (!this.anchor) this.anchor = { ...cur };
-      else for (const k in cur) this.anchor[k] += (cur[k] - this.anchor[k]) * 0.08; // 천천히 따라가서 뛰는 동안 자리가 흔들리지 않게
-      const A = this.anchor;
-      const bands = {
-        L: [A.axL - 0.42 * A.S, A.ky, 0.3 * A.S, A.ay - A.ky + 0.1 * A.S],
-        R: [A.axR + 0.12 * A.S, A.ky, 0.3 * A.S, A.ay - A.ky + 0.1 * A.S],
-        T: [A.nx - 0.35 * A.S, A.ny - 0.5 * A.S, 0.7 * A.S, 0.32 * A.S],
-        C: [0, vh * 0.35, vw * 0.1, vh * 0.3],
-      };
-      const e = {};
-      for (const k in bands) { const [x, y, w, h] = bands[k]; e[k] = this.energy(k, video, x, y, w, h, vw, vh); }
-      const v = Math.max(0, Math.max(e.L, e.R, e.T) - e.C);
-      this.hist.push({ t, v }); while (this.hist.length && t - this.hist[0].t > 6000) this.hist.shift();
-      if (calibrate) { this.base.push(v); if (this.base.length > 120) this.base.shift(); }
+    tick() {
+      this.an.getFloatTimeDomainData(this.buf);
+      let sum = 0; for (let i = 0; i < this.buf.length; i++) sum += this.buf[i] * this.buf[i];
+      const rms = Math.sqrt(sum / this.buf.length), t = performance.now();
+      if (rms > Math.max(this.floor * 5, 0.008) && rms > this.prev * 1.6 && t - this.last > 120 && t > this.mute) { this.onsets.push(t); this.last = t; }
+      else this.floor = this.floor * 0.98 + Math.min(rms, 0.05) * 0.02;
+      this.prev = rms;
+      while (this.onsets.length && t - this.onsets[0] > 15000) this.onsets.shift();
     }
-    threshold() { return Math.max(0.012, median(this.base) * 3 + 0.006); }
-    /** t1~t2 사이에 줄이 지나간 흔적이 있었나 */
-    passed(t1, t2) { const th = this.threshold(); return this.hist.some((h) => h.t >= t1 - 150 && h.t <= t2 + 80 && h.v > th); }
+    hush(ms) { this.mute = Math.max(this.mute, performance.now() + ms); }
+    heard(t1, t2) { return this.onsets.some((o) => o >= t1 && o <= t2); }
+    close() { clearInterval(this.iv); try { this.ac && this.ac.close(); } catch (e) {} }
   }
 
   // ---------- 점프 세기 ----------
-  const UP = 0.035, DOWN = 0.015, MIN_GAP = 200, WINDOW = 2500;
+  const UP = 0.035, DOWN = 0.015, MIN_GAP = 200, WINDOW = 1500; // 1.5초: 아이가 앞뒤로 움직여도 기준 높이가 빨리 따라간다
   const BODY = [11, 12, 23, 24, 25, 26, 27, 28];
   const vis = (p) => p && (p.visibility == null || p.visibility > 0.45);
   const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
@@ -162,7 +163,7 @@
     feed(t, lm) {
       if (!JumpDetector.fullBody(lm)) return { visible: false };
       const sy = (lm[11].y + lm[12].y) / 2, hy = (lm[23].y + lm[24].y) / 2, ay = (lm[27].y + lm[28].y) / 2;
-      this.scales.push(Math.max(0.05, ay - sy)); if (this.scales.length > 90) this.scales.shift();
+      this.scales.push(Math.max(0.05, ay - sy)); if (this.scales.length > 30) this.scales.shift();
       const S = median(this.scales);
       this.hist.push({ t, hy }); while (this.hist.length && t - this.hist[0].t > WINDOW) this.hist.shift();
       const ys = this.hist.map((p) => p.hy).sort((a, b) => a - b);
@@ -233,7 +234,7 @@
     if (m.cv > 0.25) issues.push({ key: "rhythm", score: m.cv * 4, title: "박자가 들쭉날쭉해", detail: "빨라졌다 느려졌다 해. 일정한 박자로 뛰면 훨씬 덜 걸려.", drill: DRILLS.rhythm });
     if (m.height > 0.11) issues.push({ key: "high", score: m.height * 10, title: "너무 높이 뛰어", detail: "높이 뛰면 금방 힘들어져. 줄이 지나갈 만큼만 낮게 뛰자.", drill: DRILLS.high });
     else if (m.heightCv > 0.4) issues.push({ key: "uneven", score: m.heightCv * 2, title: "높이가 매번 달라", detail: "어떤 땐 높고 어떤 땐 낮아. 같은 높이로 뛰는 연습을 해 보자.", drill: DRILLS.uneven });
-    if (m.drift > 0.45) issues.push({ key: "drift", score: m.drift * 2, title: "자리에서 자꾸 움직여", detail: "뛰다 보니 옆이나 앞으로 이동했어. 제자리에서 뛰어야 줄에 안 걸려.", drill: DRILLS.drift });
+    if (m.drift > 0.8) issues.push({ key: "drift", score: m.drift * 2, title: "자리에서 자꾸 움직여", detail: "뛰다 보니 옆이나 앞으로 이동했어. 제자리에서 뛰어야 줄에 안 걸려.", drill: DRILLS.drift });
     if (m.spread > 3.2) issues.push({ key: "arms", score: m.spread / 3, title: "팔을 너무 크게 벌려", detail: "팔을 크게 돌리면 줄이 짧아져서 걸리기 쉬워.", drill: DRILLS.arms });
     if (m.knee > 172) issues.push({ key: "knees", score: (m.knee - 165) / 6, title: "무릎이 뻣뻣해", detail: "무릎을 쭉 편 채로 착지했어. 살짝 굽혀야 사뿐하고 안 다쳐.", drill: DRILLS.knees });
     if (m.fade > 0.2) issues.push({ key: "stamina", score: m.fade * 4, title: "뒤로 갈수록 느려졌어", detail: "처음보다 끝에 많이 느려졌어. 체력을 조금씩 키워 보자.", drill: DRILLS.stamina });
@@ -249,5 +250,5 @@
     return { metrics: m, good: good.slice(0, 3), issues: issues.slice(0, 3) };
   }
 
-  window.JumpPose = { load, track, JumpDetector, RopeSensor, analyze, simStream, SIM };
+  window.JumpPose = { load, track, JumpDetector, RopeEar, analyze, simStream, SIM };
 })();

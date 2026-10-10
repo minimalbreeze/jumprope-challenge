@@ -1,7 +1,7 @@
 /* 줄넘기 등급 챌린지 — 도전(퀘스트) 화면: AI 코치 자동 판정
  *
  * 뛰는 아이는 폰을 들지 않는다. 다른 사람이 폰을 들고 찍기만 하면 AI 코치(js/pose.js)가
- * 영상 속 자세를 보고 점프를 자동으로 세고, 끊김·박자를 판정하고, 끝나면 자세를 분석해 연습법을 알려 준다.
+ * 영상 속 자세를 보고 점프를 자동으로 세고, 마이크로 줄 소리를 들어 줄을 넘었는지 확인하고, 끝나면 자세를 분석해 연습법을 알려 준다.
  * 사람이 누르는 건 START(와 필요하면 그만) 하나뿐이다.
  * 영상과 분석 결과는 이 폰의 "내 영상"(js/clips.js)에만 저장한다.
  *
@@ -21,8 +21,10 @@
   function unlockAudio() {
     try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume && ac.resume(); } catch (e) { ac = null; }
   }
+  let ear = null; // 줄 소리 듣기 (js/pose.js RopeEar)
   function beep(freq, dur = 0.08, vol = 0.18, type = "square", when = 0) {
     if (!soundOn || !ac) return;
+    ear && ear.hush((when + dur) * 1000 + 200);
     const t = ac.currentTime + when, o = ac.createOscillator(), g = ac.createGain();
     o.type = type; o.frequency.setValueAtTime(freq, t);
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -32,12 +34,14 @@
   const sadTone = () => [392, 330, 262].forEach((f, i) => beep(f, 0.22, 0.16, "triangle", i * 0.18));
   function say(text) {
     if (!soundOn || !("speechSynthesis" in window)) return;
+    ear && ear.hush(250 + text.length * 110);
     try { const u = new SpeechSynthesisUtterance(text); u.lang = "ko-KR"; u.rate = 1.1; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
   }
 
   // ---------- 카메라·녹화 ----------
   let stream = null, recorder = null, chunks = [];
   function stopCamera() {
+    if (ear) { ear.close(); ear = null; }
     try { recorder && recorder.state !== "inactive" && recorder.stop(); } catch (e) {}
     recorder = null;
     if (stream) stream.getTracks().forEach((t) => t.stop());
@@ -48,7 +52,10 @@
     if (JumpPose.SIM) { stream = JumpPose.simStream(); return true; } // 개발용 가짜 영상
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+      const video = { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } };
+      // 마이크는 줄이 바닥을 치는 소리를 듣는 데 쓴다. 거절하면 카메라만 쓰고, 끝에 어른 확인을 받는다.
+      try { stream = await navigator.mediaDevices.getUserMedia({ video, audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }); }
+      catch (e) { stream = await navigator.mediaDevices.getUserMedia({ video, audio: false }); }
       return true;
     } catch (e) { stream = null; return false; }
   }
@@ -94,7 +101,7 @@
   const ruleText = (g) => ({
     streak: `줄에 안 걸리고 <b>연속 ${g.n}개</b>를 뛰면 성공! 줄에 걸리거나 멈추면 <b>탈락</b>이야.`,
     speed: `<b>${g.sec}초 동안 ${g.n}개 이상</b> 뛰면 성공! 걸려도 다시 뛰면 이어서 세. 줄을 넘은 것만 세.`,
-    beat: `"콩, 콩" 소리가 날 때마다 한 번씩 뛰어. 소리에 맞춰 <b>${g.n}개</b>를 이어서 뛰면 성공! 걸리거나 멈추면 <b>탈락</b>.`,
+    sets: `<b>연속 ${g.n}개</b>를 <b>두 번</b> 하면 성공! 한 세트 끝나면 쉬었다 해도 돼. 걸리면 그 세트만 다시 세.`,
     endure: `<b>${fmtLong(g.sec)} 동안</b> 안 걸리고 계속 뛰면 성공! 줄에 걸리거나 멈추면 <b>탈락</b>.`,
   }[g.type]);
 
@@ -112,7 +119,7 @@
         <div class="quest-goal"><span class="tag">목표</span><strong>${esc(seal.mission)}</strong><p>${ruleText(seal.goal)}</p></div>
         <div class="quest-reward"><span class="tag">보상</span><div class="reward-seal">${JumpSeals.sealSVG(seal, { empty: true })}</div><small>${holo ? "✨ 반짝이 씰" : "씰 1장"}</small></div>
       </div>
-      <p class="parent-note" style="text-align:center">📹 누군가 폰으로 찍어 주기만 하면 <b>AI 코치가 자동으로 세고 판정</b>해. <b>줄을 넘은 점프만</b> 세니까 줄 없이 뛰면 안 돼!</p>
+      <p class="parent-note" style="text-align:center">📹 누군가 폰으로 찍어 주기만 하면 <b>AI 코치가 자동으로 세고 판정</b>해. 줄이 바닥을 치는 <b>"탁" 소리</b>도 들으니까 줄을 꼭 돌려서 넘어야 해!</p>
       <div class="qbtns"><button class="gbtn" data-go="${opts.firstTime ? "safety" : "camera"}">도전할래!</button><button class="gbtn gray" data-go="close">다음에</button></div>
     </div>`;
     wire();
@@ -166,9 +173,11 @@
       <div class="place">
         <div class="place-pic">${filmSVG()}</div>
         <div class="place-cards">
-          <div class="pc ok"><b>① 3걸음 떨어져서 세로로 찍기</b><small>머리부터 발끝까지 화면에 다 나오게. 폰은 흔들리지 않게 잡아 줘.</small></div>
-          <div class="pc ok"><b>② START 한 번만 누르기</b><small>아이가 화면에 다 보이면 3·2·1 하고 자동으로 시작해.</small></div>
-          <div class="pc ok"><b>③ 끝나면 결과를 같이 보기</b><small>영상, 잘한 점, 고칠 점, 연습 방법이 나와. 영상은 "내 영상"에 저장돼.</small></div>
+          <div class="pc ok"><b>① 3~4걸음 떨어져서 넉넉하게 찍기</b><small>뛰다가 앞뒤로 움직여도 머리부터 발끝까지 화면 안에 있게. 폰은 세로로, 흔들리지 않게.</small></div>
+          <div class="pc ok"><b>② 바닥에 X 표시 하기</b><small>테이프로 X를 붙이고 그 위에서 뛰면 덜 움직여.</small></div>
+          <div class="pc ok"><b>③ 단단한 바닥에서, 마이크 가리지 않기</b><small>줄이 바닥 치는 "탁" 소리로 줄 넘은 걸 확인해. 잔디·두꺼운 매트에선 잘 안 들려.</small></div>
+          <div class="pc ok"><b>④ START 한 번만 누르기</b><small>아이가 화면에 다 보이면 3·2·1 하고 자동으로 시작해.</small></div>
+          <div class="pc ok"><b>⑤ 끝나면 결과를 같이 보기</b><small>소리가 잘 안 들렸으면 영상을 보고 "줄 넘었어요"만 한 번 눌러 줘. 영상은 "내 영상"에 저장돼.</small></div>
           <div class="pc no"><b>❌ 역광·어두운 곳은 피하기</b><small>해를 등지고 서 있거나 너무 어두우면 AI 코치가 몸을 잘 못 봐.</small></div>
         </div>
       </div>
@@ -196,7 +205,7 @@
   // ---------- 3. 카메라 + AI 코치 준비 ----------
   async function camera() {
     unlockAudio();
-    layer.innerHTML = `<div class="qwin pop center"><div class="qwin-title">AI 코치 준비 중…</div>${npc("카메라를 써도 되는지 물어보면 <b>허용</b>을 눌러 줘! 처음엔 준비하는 데 조금 걸려.")}<div class="loader" aria-hidden="true"></div></div>`;
+    layer.innerHTML = `<div class="qwin pop center"><div class="qwin-title">AI 코치 준비 중…</div>${npc("카메라와 마이크를 써도 되는지 물어보면 <b>허용</b>을 눌러 줘! 마이크는 줄이 바닥 치는 소리를 듣는 데만 써.")}<div class="loader" aria-hidden="true"></div></div>`;
     const [camOk, model] = await Promise.all([openCamera(), JumpPose.load().catch(() => null)]);
     if (!model || !camOk) {
       layer.innerHTML = `<div class="qwin pop center"><div class="qwin-title">앗, 준비가 안 됐어</div>
@@ -235,9 +244,8 @@
         <div class="hud-big" id="hBig"></div>
         <div class="hud-sub" id="hSub"></div>
         <div class="judge" id="hJudge"></div>
-        ${g.type === "beat" ? `<div class="beat" id="hBeat" aria-hidden="true"></div>` : ""}
       </div>
-      <div class="exp" id="hExpBox" hidden><i id="hExp"></i><span id="hExpTxt">0 / ${g.n || fmtLong(g.sec)}</span></div>
+      <div class="exp" id="hExpBox" hidden><i id="hExp"></i><span id="hExpTxt">${g.type === "sets" ? `0/2세트 · 0/${g.n}` : `0 / ${g.n || fmtLong(g.sec)}`}</span></div>
       <div class="judge-row"><span class="body-chip" id="hBody">몸을 찾는 중…</span><button class="startbtn mini" id="goBtn">START</button><button class="gbtn gray" id="quit" hidden>■ 그만</button></div>
     </div>`;
     const el = (id) => $(layer, "#" + id);
@@ -246,9 +254,9 @@
     el("hBig").textContent = "";
     el("hSub").textContent = "아이가 머리부터 발끝까지 보이게 찍어 줘";
 
-    const det = new JumpPose.JumpDetector(), rope = new JumpPose.RopeSensor();
-    const S = { count: 0, combo: 0, best: 0, breaks: [], contStart: 0, endureBest: 0, lastJump: 0, lastSeen: 0, beatK: -1, lastTry: 0, ropeOk: 0, ropeMiss: 0, noRope: 0 };
-    let phase = "ready", t0 = 0, seenSince = 0, beatT = 0, beatStart = 0, raf = 0;
+    const det = new JumpPose.JumpDetector();
+    const S = { count: 0, combo: 0, best: 0, sets: 0, breaks: [], contStart: 0, endureBest: 0, lastJump: 0, lastSeen: 0, heard: 0 };
+    let phase = "ready", t0 = 0, seenSince = 0, raf = 0;
 
     let lock = null;
     (async () => { try { lock = await navigator.wakeLock.request("screen"); } catch (e) {} })();
@@ -259,42 +267,31 @@
     const bigVal = () => (g.type === "speed" ? S.count : S.combo);
 
     function onJump(j) {
-      // 줄 확인: 이번 점프 사이에 줄이 지나간 흔적이 있어야 센다. 줄이 한 번 확인된 뒤 한 번 놓친 건 봐준다.
-      const seen = rope.passed(S.lastTry || j.t - 900, j.t);
-      S.lastTry = j.t;
-      if (seen) { S.ropeMiss = 0; S.ropeOk++; } else S.ropeMiss++;
-      if (!(seen || (S.ropeMiss === 1 && S.ropeOk > 0))) {
-        S.noRope++;
-        if (g.type === "speed") { showJudge("줄이 안 보여!", "ms"); beep(220, 0.15, 0.15, "sawtooth"); return; }
-        return finish(false, "줄넘기 줄이 안 보였어. 줄을 돌려서 넘어야 인정돼!");
-      }
-      S.count++;
-      if (g.type === "beat") {
-        const k = Math.round((j.t - beatStart) / g.beat), diff = Math.abs(j.t - (beatStart + k * g.beat));
-        if (k >= 0 && diff <= g.beat * 0.3 && k !== S.beatK) { S.combo++; S.beatK = k; showJudge(diff <= g.beat * 0.12 ? "PERFECT" : "GOOD", diff <= g.beat * 0.12 ? "pf" : "gd"); }
-        else { S.combo = 0; showJudge("박자!", "ms"); }
-      } else S.combo++;
+      // 줄 소리: 앞 점프 착지 뒤 ~ 이번 착지 직전 사이(발이 떨어질 때쯤)에 "탁"이 있었나. 착지 소리는 뺀다.
+      if (ear && ear.ok && ear.heard((S.lastJump || j.t - 800) + 80, j.t - 40)) S.heard++;
+      S.count++; S.combo++;
       S.best = Math.max(S.best, S.combo);
       if (!S.contStart) S.contStart = j.t;
       S.lastJump = j.t;
-      beep(S.combo && S.combo % 10 === 0 ? 1320 : 880, 0.04, 0.1);
-      if (S.count % 10 === 0) say(`${S.count}개`);
+      if (g.type === "sets" && S.combo >= g.n) {
+        S.sets++; S.combo = 0;
+        if (S.sets < g.sets) { showJudge(`${S.sets}세트 성공! 한 번 더!`, "pf"); say(`${S.sets}세트!`); }
+      } else if (S.count % 10 === 0) say(`${S.count}개`);
       if (g.type !== "endure") el("hBig").textContent = String(bigVal());
       bump();
     }
     function onBreak(t, why) {
       S.breaks.push(t - t0);
-      // 연속·박자·오래 뛰기는 걸리거나 멈추면 바로 탈락. 30초·1분 도전은 개수 미션이라 이어서 센다.
-      if (g.type !== "speed") { beep(220, 0.25, 0.18, "sawtooth"); return finish(false, why === "화면 밖으로 나갔어!" ? "화면 밖으로 나갔어. 머리부터 발끝까지 보이는 자리에서 뛰어 줘!" : "줄에 걸렸거나 멈췄어. 탈락! 다시 도전해 보자"); }
-      if (g.type !== "speed") { S.combo = 0; if (g.type !== "endure") el("hBig").textContent = "0"; }
-      S.contStart = 0; S.beatK = -1;
+      // 연속·오래 뛰기는 걸리거나 멈추면 바로 탈락. 2세트는 그 세트만 다시, 30초·1분 도전은 이어서 센다.
+      if (g.type === "streak" || g.type === "endure") { beep(220, 0.25, 0.18, "sawtooth"); return finish(false, why === "화면 밖으로 나갔어!" ? "화면 밖으로 나갔어. 머리부터 발끝까지 보이는 자리에서 뛰어 줘!" : "줄에 걸렸거나 멈췄어. 탈락! 다시 도전해 보자"); }
+      if (g.type === "sets") { S.combo = 0; el("hBig").textContent = "0"; }
+      S.contStart = 0;
       showJudge(why, "ms"); beep(220, 0.25, 0.18, "sawtooth");
     }
 
     let broke = false;
     const stopTrack = JumpPose.track(v, (t, lm) => {
       const r = det.feed(t, lm);
-      rope.feed(t, lm, v, phase === "wait" || phase === "count");
       drawPose(cv, v, lm, r.visible);
       const chip = el("hBody");
       if (r.visible) { S.lastSeen = t; if (!seenSince) seenSince = t; chip.textContent = "✔ 몸이 다 보여요"; chip.className = "body-chip ok"; }
@@ -310,6 +307,7 @@
 
     el("goBtn").onclick = () => {
       unlockAudio();
+      ear = new JumpPose.RopeEar(stream);
       el("goBtn").hidden = true; el("quit").hidden = false;
       phase = "wait";
       el("hSub").textContent = "아이가 화면에 다 보이면 시작해!";
@@ -328,20 +326,15 @@
         phase = "go"; t0 = performance.now(); S.lastSeen = t0;
         el("hExpBox").hidden = false;
         el("hBig").textContent = "START!"; el("hBig").classList.add("start");
-        el("hSub").textContent = g.type === "beat" ? "소리에 맞춰 뛰어!" : g.type === "endure" ? "계속 뛰어!" : "뛰어!";
+        el("hSub").textContent = g.type === "endure" ? "계속 뛰어!" : g.type === "sets" ? "1세트 시작!" : "뛰어!";
         beep(990, 0.4, 0.25); say("시작!");
         startRecording();
         setTimeout(() => { el("hBig").classList.remove("start"); if (phase === "go") el("hBig").textContent = g.type === "endure" ? "0:00" : String(bigVal()); }, 700);
-        if (g.type === "beat") {
-          beatStart = t0 + 600;
-          const tick = () => { if (phase !== "go") return; beep(1046, 0.07, 0.22); const b = el("hBeat"); b && (b.classList.remove("on"), void b.offsetWidth, b.classList.add("on")); };
-          setTimeout(() => { tick(); beatT = setInterval(tick, g.beat); }, 600);
-        }
         loop();
       }, 1000);
       cleanup.push(() => clearInterval(cd));
     }
-    cleanup.push(() => { clearInterval(beatT); cancelAnimationFrame(raf); });
+    cleanup.push(() => cancelAnimationFrame(raf));
 
     function progress(now) {
       const cont = S.contStart && now - S.lastJump <= BREAK_MS ? (now - S.contStart) / 1000 : 0;
@@ -349,6 +342,7 @@
       switch (g.type) {
         case "speed": return { v: S.count, max: g.n, txt: `${S.count} / ${g.n}`, win: S.count >= g.n };
         case "endure": return { v: cont, max: g.sec, txt: `${fmt(cont)} / ${fmt(g.sec)}`, win: cont >= g.sec };
+        case "sets": return { v: S.sets * g.n + S.combo, max: g.sets * g.n, txt: `${S.sets}/${g.sets}세트 · 연속 ${S.combo}/${g.n}`, win: S.sets >= g.sets };
         default: return { v: S.combo, max: g.n, txt: `${S.combo} / ${g.n}`, win: S.combo >= g.n };
       }
     }
@@ -369,18 +363,39 @@
     document.addEventListener("visibilitychange", vis);
     cleanup.push(() => document.removeEventListener("visibilitychange", vis));
 
+    function confirmRope(blob, hadMic) {
+      return new Promise((res) => {
+        const url = blob ? URL.createObjectURL(blob) : "";
+        layer.innerHTML = `<div class="qwin pop center"><div class="qwin-title">심판님, 하나만 확인!</div>
+          ${url ? `<video class="replay" src="${url}" controls playsinline></video>` : ""}
+          ${npc(hadMic ? "줄이 바닥 치는 소리가 잘 안 들려서 제가 확신을 못 했어요. 영상을 보고 <b>줄을 돌려서 넘었는지</b> 알려 주세요!" : "마이크를 쓸 수 없어서 줄 소리를 못 들었어요. 영상을 보고 <b>줄을 돌려서 넘었는지</b> 알려 주세요!")}
+          <div class="qbtns"><button class="gbtn" id="ropeYes">✔ 네, 줄 넘었어요</button><button class="gbtn gray" id="ropeNo">✖ 아니요</button></div>
+          <p class="parent-note">소리가 잘 들리게 하려면: 단단한 바닥(우레탄·마루·아스팔트)에서 하고, 폰 아래쪽 마이크를 손으로 가리지 마세요.</p></div>`;
+        $(layer, "#ropeYes").onclick = () => { url && URL.revokeObjectURL(url); res(true); };
+        $(layer, "#ropeNo").onclick = () => { url && URL.revokeObjectURL(url); res(false); };
+      });
+    }
+
     async function finish(win, why) {
       if (phase === "done") return;
       const wasGo = phase === "go";
-      phase = "done"; cancelAnimationFrame(raf); clearInterval(beatT); stopTrack();
+      phase = "done"; cancelAnimationFrame(raf); stopTrack();
       if (!wasGo) { close(); return; }
       if (win) { beep(1320, 0.2, 0.2); say("목표 달성!"); }
       const blob = await stopRecording();
       const dur = performance.now() - t0;
+      // 줄 확인: "탁" 소리가 점프의 60% 이상에서 들렸으면 확신. 아니면(잔디·매트, 마이크 거절 등) 어른이 영상 보고 한 번 확인.
+      const sure = !!(ear && ear.ok) && S.count >= 2 && S.heard / S.count >= 0.6;
+      let ropeCheck = sure ? "sound" : "";
+      if (win && !sure) {
+        const yes = await confirmRope(blob, !!(ear && ear.ok));
+        ropeCheck = yes ? "adult" : "denied";
+        if (!yes) { win = false; why = "줄을 넘지 않은 걸로 확인했어."; }
+      }
       const jumps = det.jumps.filter((j) => j.t >= t0);
       const analysis = JumpPose.analyze(jumps, S.breaks, dur);
-      if (S.noRope >= Math.max(2, (S.count + S.noRope) * 0.15)) analysis.issues.unshift({ key: "rope", title: "줄이 안 보였어", detail: `줄을 넘지 않은 점프가 ${S.noRope}번 있었어. 줄 없이 뛰었거나, 줄이 화면에 잘 안 잡혔어.`, drill: { name: "줄 잘 보이게 찍기", how: "밝은 곳에서, 바닥·벽과 색이 다른 줄로 해 봐. 머리 위와 발밑까지 화면에 다 나오게 찍어 줘." } });
-      const stats = { count: S.count, best: S.best, breaks: S.breaks.length, endure: Math.round(S.endureBest), dur: Math.round(dur / 1000) };
+      if (ropeCheck === "denied") analysis.issues.unshift({ key: "rope", title: "줄을 넘지 않았어", detail: "줄 없이 뛰었거나 줄에 걸린 채로 뛰었어. 줄을 돌려서 넘어야 인정돼.", drill: { name: "한 번씩 넘기", how: "줄을 머리 위로 넘기고, 줄이 발 앞 바닥에 닿을 때 '콩!' 하고 한 번만 넘기. 10번 해 봐." } });
+      const stats = { count: S.count, best: S.best, breaks: S.breaks.length, endure: Math.round(S.endureBest), dur: Math.round(dur / 1000), heard: S.heard, ropeCheck };
       let saved = false;
       try {
         await JumpClips.save({ pid: cur.opts.pid, at: new Date().toISOString(), sealNo: seal.no, mission: seal.mission, stage: seal.stageName, grade: seal.grade, win, stats, analysis, goal: g.type, blob, mime: blob ? blob.type : "" });
