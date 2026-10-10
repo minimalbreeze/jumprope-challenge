@@ -177,7 +177,7 @@
           <div class="pc ok"><b>② 바닥에 X 표시 하기</b><small>테이프로 X를 붙이고 그 위에서 뛰면 덜 움직여.</small></div>
           <div class="pc ok"><b>③ 단단한 바닥에서, 마이크 가리지 않기</b><small>줄이 바닥 치는 "탁" 소리로 줄 넘은 걸 확인해. 잔디·두꺼운 매트에선 잘 안 들려.</small></div>
           <div class="pc ok"><b>④ START 한 번만 누르기</b><small>아이가 화면에 다 보이면 3·2·1 하고 자동으로 시작해.</small></div>
-          <div class="pc ok"><b>⑤ 끝나면 결과를 같이 보기</b><small>소리가 잘 안 들렸으면 영상을 보고 "줄 넘었어요"만 한 번 눌러 줘. 영상은 "내 영상"에 저장돼.</small></div>
+          <div class="pc ok"><b>⑤ 끝나면 결과를 같이 보기</b><small>줄 소리가 애매하면 <b>비디오 판독</b>이 열려. 영상을 보고 "인정" 또는 "노 카운트"만 눌러 줘. 영상은 "내 영상"에 저장돼.</small></div>
           <div class="pc no"><b>❌ 역광·어두운 곳은 피하기</b><small>해를 등지고 서 있거나 너무 어두우면 AI 코치가 몸을 잘 못 봐.</small></div>
         </div>
       </div>
@@ -363,16 +363,28 @@
     document.addEventListener("visibilitychange", vis);
     cleanup.push(() => document.removeEventListener("visibilitychange", vis));
 
+    // 비디오 판독: 줄 소리로 확신하지 못했을 때만, 스포츠 VAR처럼 어른(심판)이 영상을 보고 판정한다.
     function confirmRope(blob, hadMic) {
       return new Promise((res) => {
         const url = blob ? URL.createObjectURL(blob) : "";
-        layer.innerHTML = `<div class="qwin pop center"><div class="qwin-title">심판님, 하나만 확인!</div>
-          ${url ? `<video class="replay" src="${url}" controls playsinline></video>` : ""}
-          ${npc(hadMic ? "줄이 바닥 치는 소리가 잘 안 들려서 제가 확신을 못 했어요. 영상을 보고 <b>줄을 돌려서 넘었는지</b> 알려 주세요!" : "마이크를 쓸 수 없어서 줄 소리를 못 들었어요. 영상을 보고 <b>줄을 돌려서 넘었는지</b> 알려 주세요!")}
-          <div class="qbtns"><button class="gbtn" id="ropeYes">✔ 네, 줄 넘었어요</button><button class="gbtn gray" id="ropeNo">✖ 아니요</button></div>
-          <p class="parent-note">소리가 잘 들리게 하려면: 단단한 바닥(우레탄·마루·아스팔트)에서 하고, 폰 아래쪽 마이크를 손으로 가리지 마세요.</p></div>`;
-        $(layer, "#ropeYes").onclick = () => { url && URL.revokeObjectURL(url); res(true); };
-        $(layer, "#ropeNo").onclick = () => { url && URL.revokeObjectURL(url); res(false); };
+        [880, 660, 880, 660].forEach((f, i) => beep(f, 0.14, 0.18, "square", i * 0.16));
+        say("비디오 판독!");
+        layer.innerHTML = `<div class="qwin pop center var-win"><div class="qwin-title">📺 비디오 판독!</div>
+          <div class="var-banner"><span class="var-dot"></span>VIDEO REVIEW<span class="var-dot"></span></div>
+          ${url ? `<div class="var-screen"><video class="replay" src="${url}" controls playsinline></video><span class="var-tag">판독 중…</span></div>` : ""}
+          ${npc(hadMic ? "줄이 바닥 치는 소리가 잘 안 들려서 <b>비디오 판독</b>에 들어가요! 심판님, 영상을 보고 <b>줄을 돌려서 넘었는지</b> 판정해 주세요!" : "마이크를 쓸 수 없어서 <b>비디오 판독</b>으로 확인해요! 심판님, 영상을 보고 <b>줄을 돌려서 넘었는지</b> 판정해 주세요!")}
+          <div class="qbtns"><button class="gbtn" id="ropeYes">✔ 인정! 줄 넘었어요</button><button class="gbtn gray" id="ropeNo">✖ 노 카운트</button></div>
+          <p class="parent-note">판독이 자주 나오면: 단단한 바닥(우레탄·마루·아스팔트)에서 하고, 폰 아래쪽 마이크를 손으로 가리지 마세요.</p></div>`;
+        const decide = (ok) => {
+          url && URL.revokeObjectURL(url);
+          if (ok) { [784, 988, 1175].forEach((f, i) => beep(f, 0.16, 0.2, "square", i * 0.1)); say("판독 결과, 인정!"); }
+          else { beep(196, 0.5, 0.2, "sawtooth"); say("판독 결과, 노 카운트"); }
+          layer.innerHTML = `<div class="qwin pop center var-win"><div class="qwin-title">📺 비디오 판독 결과</div>
+            <div class="var-stamp ${ok ? "ok" : "no"}">${ok ? "인정!" : "노 카운트"}</div></div>`;
+          setTimeout(() => res(ok), 1400);
+        };
+        $(layer, "#ropeYes").onclick = () => decide(true);
+        $(layer, "#ropeNo").onclick = () => decide(false);
       });
     }
 
@@ -390,7 +402,7 @@
       if (win && !sure) {
         const yes = await confirmRope(blob, !!(ear && ear.ok));
         ropeCheck = yes ? "adult" : "denied";
-        if (!yes) { win = false; why = "줄을 넘지 않은 걸로 확인했어."; }
+        if (!yes) { win = false; why = "비디오 판독 결과 노 카운트! 줄을 돌려서 넘어야 인정돼."; }
       }
       const jumps = det.jumps.filter((j) => j.t >= t0);
       const analysis = JumpPose.analyze(jumps, S.breaks, dur);
