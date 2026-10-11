@@ -395,22 +395,6 @@ body.has-nav .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .rw b{font-family:var(--font-game);font-weight:400;font-size:22px}
 .rw span{font-family:var(--font-ui);font-size:14px}
 .rw.record{background:linear-gradient(90deg,#fff3bf,#ffe066);border:3px solid #b7861b;animation:popin .5s cubic-bezier(.2,1.6,.4,1)}
-.rw.level{background:linear-gradient(90deg,#d0ebff,#a5d8ff);border:3px solid var(--navy);animation:popin .6s cubic-bezier(.2,1.6,.4,1)}
-.rw.exp{background:var(--win-soft)}
-/* 레벨·랭킹 */
-.level{display:grid;gap:6px}
-.lv-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.lv-badge{font-family:var(--font-game);font-size:18px;color:var(--gold);background:var(--navy);border-radius:10px;padding:1px 10px}
-.lv-row b{font-family:var(--font-game);font-weight:400;font-size:22px;color:var(--navy)}
-.lv-row small{color:var(--muted);font-size:13px}
-.exp-bar i{background:linear-gradient(180deg,#a5d8ff,#4dabf7)}
-.rank{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:6px}
-.rank li{display:grid;grid-template-columns:32px 40px 1fr auto;gap:8px;align-items:center;background:#fff;border:2px solid var(--gray2);border-radius:12px;padding:4px 10px}
-.rank li.me{border-color:var(--orange2);background:#fff4e6}
-.rank .medal{font-size:22px;text-align:center;font-family:var(--font-game)}
-.rank .rk-av svg{width:40px;height:40px;display:block}
-.rank b{font-family:var(--font-ui);font-weight:400;font-size:16px}
-.rank .rk-n{font-family:var(--font-game);font-size:18px;color:var(--navy);font-variant-numeric:tabular-nums}
 .var-ai{width:100%;display:grid;gap:2px;text-align:left;border-radius:12px;padding:8px 12px;background:var(--win-soft);border:2px solid var(--gray2);font-size:14px}
 .var-ai b{font-family:var(--font-ui);font-weight:400;font-size:15px}
 .var-ai.ok{border-color:#8ce99a;background:#ebfbee}.var-ai.warn{border-color:#ffc078;background:#fff4e6}
@@ -503,8 +487,6 @@ body.has-nav .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   <div class="pane" id="pane-home">
   <section class="panel next-quest" id="nextQuest"></section>
   <section class="panel practice" id="practicePanel"></section>
-  <section class="panel level" id="lvPanel"><span class="wtitle">내 레벨</span><div id="lvBox"></div></section>
-  <section class="panel rank-panel" id="rankBox" hidden></section>
   <section class="panel summary" id="summary">
     <span class="wtitle">내 씰 도감</span>
     <div>

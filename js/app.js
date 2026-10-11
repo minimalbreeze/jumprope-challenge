@@ -81,7 +81,7 @@
     const chip = $("#meChip");
     if (!state.grade) { chip.hidden = true; return; }
     chip.hidden = false;
-    chip.innerHTML = `<span class="me-av">${avatarSVG(state)}</span><span class="lv">Lv.${levelOf(recOf(state).total)}</span><b>${esc(state.nick)}</b>${me.id ? `<span class="idtag">#${me.id}</span>` : ""}<span class="swap" aria-hidden="true">⇄</span>`;
+    chip.innerHTML = `<span class="me-av">${avatarSVG(state)}</span><span class="lv">${state.grade}학년</span><b>${esc(state.nick)}</b>${me.id ? `<span class="idtag">#${me.id}</span>` : ""}<span class="swap" aria-hidden="true">⇄</span>`;
     chip.setAttribute("role", "button"); chip.tabIndex = 0;
     chip.setAttribute("aria-label", `${state.nick}, 다른 아이로 바꾸기`);
     chip.onclick = openKids; chip.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openKids(); } };
@@ -267,18 +267,12 @@
     renderAlbum();
   });
 
-  // ---------- 레벨·기록·가족 랭킹 ----------
-  // 뛴 횟수가 경험치. 실패해도 뛴 만큼 쌓인다. Lv n 이 되려면 누적 30·n(n-1)/2 번.
-  const TITLES = ["새싹", "콩콩이", "폴짝이", "깡총이", "날쌘돌이", "바람돌이", "번개", "태풍", "줄넘기 기사", "줄넘기 왕"];
-  const needFor = (lv) => (30 * lv * (lv - 1)) / 2;
-  function levelOf(total) { let lv = 1; while (total >= needFor(lv + 1)) lv++; return lv; }
-  const titleOf = (lv) => (lv <= TITLES.length ? TITLES[lv - 1] : `줄넘기 왕 ★${lv - TITLES.length}`);
-  function weekKey(d = new Date()) { const m = new Date(d); m.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return `${m.getFullYear()}-${pad(m.getMonth() + 1)}-${pad(m.getDate())}`; }
-  const recOf = (k) => { const r = k.rec || { total: 0, best: 0, wk: "", week: 0 }; if (r.wk !== weekKey()) { r.wk = weekKey(); r.week = 0; } return r; };
+  // ---------- 내 기록 (신기록) ----------
+  const recOf = (k) => k.rec || (k.rec = { best: 0, free: {} });
   const PRACTICE = [[30, "30초"], [60, "1분"], [0, "마음껏"]];
   function onFinish({ count, best, practiceSec }) {
-    const r = recOf(state), before = levelOf(r.total), oldBest = r.best;
-    r.total += count; r.week += count; r.best = Math.max(r.best, best);
+    const r = recOf(state), oldBest = r.best;
+    r.best = Math.max(r.best, best);
     let newPractice = false, practiceBest = 0, practiceLabel = "";
     if (practiceSec != null) { // 자유 연습은 시간별 최고 개수를 따로 기록
       r.free = r.free || {};
@@ -287,14 +281,13 @@
       practiceBest = r.free[k]; practiceLabel = (PRACTICE.find(([s]) => s === practiceSec) || [0, ""])[1];
     }
     state.rec = r; save();
-    const lv = levelOf(r.total);
-    return { gained: count, newBest: best > oldBest && best >= 3, best: r.best, levelUp: lv > before, lv, title: titleOf(lv), toNext: needFor(lv + 1) - r.total, newPractice, practiceBest, practiceLabel };
+    return { newBest: best > oldBest && best >= 3, best: r.best, newPractice, practiceBest, practiceLabel };
   }
   function renderPractice() {
     if (!state.grade) return;
     const free = recOf(state).free || {};
     $("#practicePanel").innerHTML = `<span class="wtitle">🆓 자유 연습</span>
-      <p class="muted" style="margin:2px 0 0;font-size:14px">씰·탈락 없이 마음껏 뛰기! 뛴 만큼 경험치가 쌓이고, 시간별 내 최고 기록에 도전해.</p>
+      <p class="muted" style="margin:2px 0 0;font-size:14px">씰·탈락 없이 마음껏 뛰기! 시간별 내 최고 기록에 도전해.</p>
       <div class="pr-row">${PRACTICE.map(([sec, label]) => `<button class="pr-btn" data-sec="${sec}"><b>${label}</b><small>${free[sec] ? `내 최고 ${free[sec]}개` : "기록 없음"}</small></button>`).join("")}</div>`;
     $("#practicePanel").querySelectorAll("[data-sec]").forEach((b) => (b.onclick = () => startPractice(+b.dataset.sec)));
   }
@@ -304,23 +297,9 @@
       onSafetyDone: () => { state.safetyDone = true; save(); },
       onSaved: () => { renderClips(); renderLastNote(); }, pid: state.id,
       practiceBest: (recOf(state).free || {})[String(sec)] || 0,
-      onFinish: (x) => { const r = onFinish(x); renderLevel(); renderPractice(); renderMe(); return r; },
+      onFinish: (x) => { const r = onFinish(x); renderPractice(); return r; },
     });
   }
-  function renderLevel() {
-    if (!state.grade) return;
-    const r = recOf(state), lv = levelOf(r.total), a = needFor(lv), b = needFor(lv + 1);
-    $("#lvBox").innerHTML = `<div class="lv-row"><span class="lv-badge">Lv.${lv}</span><b>${esc(titleOf(lv))}</b><small>총 ${r.total}번 뛰었어 · 최고 연속 ${r.best}개</small></div>
-      <div class="bar exp-bar"><i style="width:${Math.min(100, ((r.total - a) / (b - a)) * 100)}%"></i></div><small class="muted">다음 레벨 "${esc(titleOf(lv + 1))}"까지 ${b - r.total}번</small>`;
-    const box = $("#rankBox");
-    if (store.list.length < 2) { box.hidden = true; return; }
-    box.hidden = false;
-    const medals = ["🥇", "🥈", "🥉"];
-    const rows = [...store.list].map((k) => ({ k, w: recOf(k).week })).sort((x, y) => y.w - x.w);
-    box.innerHTML = `<span class="wtitle">👨‍👩‍👧 이번 주 가족 랭킹</span><ol class="rank">${rows.map(({ k, w }, i) => `<li class="${k === state ? "me" : ""}"><span class="medal">${medals[i] || i + 1}</span><span class="rk-av">${avatarSVG(k)}</span><b>${esc(k.nick)}</b><span class="rk-n">${w}번</span></li>`).join("")}</ol>
-      <small class="muted">월요일마다 새로 시작해. 이번 주에 뛴 횟수(실패한 도전 포함)로 순위를 정해.</small>`;
-  }
-
   function startQuest(no) {
     JumpChallenge.start(sealByNo(no), {
       sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade,
@@ -328,7 +307,7 @@
       onSafetyDone: () => { state.safetyDone = true; save(); },
       onSaved: () => { renderClips(); renderLastNote(); }, pid: state.id,
       onClear: () => award(no),
-      onFinish: (x) => { const r = onFinish(x); renderLevel(); renderMe(); return r; },
+      onFinish,
     });
   }
 
@@ -792,7 +771,7 @@
   };
   $("#peek").onchange = (e) => { peek = e.target.checked; renderAlbum(); };
 
-  function renderAll() { renderMe(); renderHello(); renderSummary(); renderLevel(); renderNext(); renderPractice(); renderAlbum(); renderCards(); renderSettings(); renderPrefs(); renderClips(); renderLastNote(); renderNav(); }
+  function renderAll() { renderMe(); renderHello(); renderSummary(); renderNext(); renderPractice(); renderAlbum(); renderCards(); renderSettings(); renderPrefs(); renderClips(); renderLastNote(); renderNav(); }
 
   // ---------- 시작 화면 ----------
   function jingle() {

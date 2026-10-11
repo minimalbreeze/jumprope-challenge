@@ -463,9 +463,7 @@
     const items = [];
     if (r.newPractice) items.push(`<div class="rw record"><b>🏅 NEW RECORD!</b><span>${esc(r.practiceLabel)} 최고 ${r.practiceBest}개</span></div>`);
     if (r.newBest) items.push(`<div class="rw record"><b>🏅 NEW RECORD!</b><span>최고 연속 기록 ${r.best}개</span></div>`);
-    if (r.levelUp) items.push(`<div class="rw level"><b>⬆ 레벨 업! Lv.${r.lv}</b><span>"${esc(r.title)}" 칭호를 얻었어!</span></div>`);
-    items.push(`<div class="rw exp"><span>이번에 뛴 ${r.gained}번이 경험치로 쌓였어 · 다음 레벨까지 ${r.toNext}번</span></div>`);
-    return `<div class="rewards">${items.join("")}</div>`;
+    return items.length ? `<div class="rewards">${items.join("")}</div>` : "";
   }
   function result({ win, why, blob, stats, analysis, saved, rewards }) {
     stopCamera();
@@ -473,7 +471,7 @@
     cleanup.push(() => url && URL.revokeObjectURL(url));
     const g = cur.seal.goal;
     if (cur.seal.practice) return practiceResult({ blob, url, stats, analysis, saved, rewards });
-    if (win) { fanfare(); say(rewards && rewards.levelUp ? "퀘스트 클리어! 레벨 업!" : "퀘스트 클리어!"); }
+    if (win) { fanfare(); say(rewards && rewards.newBest ? "퀘스트 클리어! 신기록!" : "퀘스트 클리어!"); }
     else { sadTone(); say(rewards && rewards.newBest ? "아쉽지만 신기록이야!" : "아쉬워! 다시 도전하자"); }
     layer.innerHTML = `<div class="qwin pop center result-win">
       <div class="qwin-title">${win ? "퀘스트 성공!" : "아쉬워!"}</div>
