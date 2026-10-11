@@ -275,12 +275,37 @@
   const titleOf = (lv) => (lv <= TITLES.length ? TITLES[lv - 1] : `줄넘기 왕 ★${lv - TITLES.length}`);
   function weekKey(d = new Date()) { const m = new Date(d); m.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return `${m.getFullYear()}-${pad(m.getMonth() + 1)}-${pad(m.getDate())}`; }
   const recOf = (k) => { const r = k.rec || { total: 0, best: 0, wk: "", week: 0 }; if (r.wk !== weekKey()) { r.wk = weekKey(); r.week = 0; } return r; };
-  function onFinish({ count, best }) {
+  const PRACTICE = [[30, "30초"], [60, "1분"], [0, "마음껏"]];
+  function onFinish({ count, best, practiceSec }) {
     const r = recOf(state), before = levelOf(r.total), oldBest = r.best;
     r.total += count; r.week += count; r.best = Math.max(r.best, best);
+    let newPractice = false, practiceBest = 0, practiceLabel = "";
+    if (practiceSec != null) { // 자유 연습은 시간별 최고 개수를 따로 기록
+      r.free = r.free || {};
+      const k = String(practiceSec), old = r.free[k] || 0;
+      newPractice = count > old && count > 0; r.free[k] = Math.max(old, count);
+      practiceBest = r.free[k]; practiceLabel = (PRACTICE.find(([s]) => s === practiceSec) || [0, ""])[1];
+    }
     state.rec = r; save();
     const lv = levelOf(r.total);
-    return { gained: count, newBest: best > oldBest && best >= 3, best: r.best, levelUp: lv > before, lv, title: titleOf(lv), toNext: needFor(lv + 1) - r.total };
+    return { gained: count, newBest: best > oldBest && best >= 3, best: r.best, levelUp: lv > before, lv, title: titleOf(lv), toNext: needFor(lv + 1) - r.total, newPractice, practiceBest, practiceLabel };
+  }
+  function renderPractice() {
+    if (!state.grade) return;
+    const free = recOf(state).free || {};
+    $("#practicePanel").innerHTML = `<span class="wtitle">🆓 자유 연습</span>
+      <p class="muted" style="margin:2px 0 0;font-size:14px">씰·탈락 없이 마음껏 뛰기! 뛴 만큼 경험치가 쌓이고, 시간별 내 최고 기록에 도전해.</p>
+      <div class="pr-row">${PRACTICE.map(([sec, label]) => `<button class="pr-btn" data-sec="${sec}"><b>${label}</b><small>${free[sec] ? `내 최고 ${free[sec]}개` : "기록 없음"}</small></button>`).join("")}</div>`;
+    $("#practicePanel").querySelectorAll("[data-sec]").forEach((b) => (b.onclick = () => startPractice(+b.dataset.sec)));
+  }
+  function startPractice(sec) {
+    JumpChallenge.practice(sec, {
+      sound: state.sound !== false, nick: state.nick, firstTime: !state.safetyDone,
+      onSafetyDone: () => { state.safetyDone = true; save(); },
+      onSaved: () => { renderClips(); renderLastNote(); }, pid: state.id,
+      practiceBest: (recOf(state).free || {})[String(sec)] || 0,
+      onFinish: (x) => { const r = onFinish(x); renderLevel(); renderPractice(); renderMe(); return r; },
+    });
   }
   function renderLevel() {
     if (!state.grade) return;
@@ -303,7 +328,7 @@
       onSafetyDone: () => { state.safetyDone = true; save(); },
       onSaved: () => { renderClips(); renderLastNote(); }, pid: state.id,
       onClear: () => award(no),
-      onFinish,
+      onFinish: (x) => { const r = onFinish(x); renderLevel(); renderMe(); return r; },
     });
   }
 
@@ -700,9 +725,9 @@
       const d = new Date(c.at), when = `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
       const issue = c.analysis && c.analysis.issues && c.analysis.issues[0];
       return `<li><button class="clip-row" data-clip="${c.id}">
-        <span class="mini-seal">${sealSVG(sealByNo(c.sealNo), { empty: !has(c.sealNo) })}</span>
+        <span class="mini-seal">${c.sealNo ? sealSVG(sealByNo(c.sealNo), { empty: !has(c.sealNo) }) : window.JumpSeals.jumperSVG(avatarOf(state), { still: true })}</span>
         <span><b>${esc(c.mission)}</b><small>${when} · ${c.stats.count}개${issue ? ` · 연습: ${esc(issue.drill.name)}` : ""}</small></span>
-        <span class="res ${c.win ? "win" : "lose"}">${c.win ? "성공" : "도전"}</span></button></li>`;
+        <span class="res ${c.win ? "win" : c.sealNo ? "lose" : "free"}">${c.win ? "성공" : c.sealNo ? "도전" : "연습"}</span></button></li>`;
     }).join("");
     $("#clipList").querySelectorAll("[data-clip]").forEach((b) => (b.onclick = () => openClip(+b.dataset.clip)));
   }
@@ -712,7 +737,7 @@
     const url = c.blob ? URL.createObjectURL(c.blob) : "";
     const d = new Date(c.at);
     openSheet(`<h2>${esc(c.mission)}</h2>
-      <div><span class="pill">${c.grade}학년 코스 · ${esc(c.stage)}</span> <span class="pill">${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}</span> <span class="res ${c.win ? "win" : "lose"}">${c.win ? "성공" : "도전 중"}</span></div>
+      <div><span class="pill">${c.sealNo ? `${c.grade}학년 코스 · ${esc(c.stage)}` : "🆓 자유 연습"}</span> <span class="pill">${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}</span> <span class="res ${c.win ? "win" : "lose"}">${c.win ? "성공" : "도전 중"}</span></div>
       ${url ? `<video class="replay" src="${url}" controls playsinline></video>` : `<p class="note">이 기록에는 영상이 없어.</p>`}
       ${JumpChallenge.statsHTML(c.stats, c.goal)}
       ${JumpChallenge.feedbackHTML(c.analysis)}
@@ -767,7 +792,7 @@
   };
   $("#peek").onchange = (e) => { peek = e.target.checked; renderAlbum(); };
 
-  function renderAll() { renderMe(); renderHello(); renderSummary(); renderLevel(); renderNext(); renderAlbum(); renderCards(); renderSettings(); renderPrefs(); renderClips(); renderLastNote(); renderNav(); }
+  function renderAll() { renderMe(); renderHello(); renderSummary(); renderLevel(); renderNext(); renderPractice(); renderAlbum(); renderCards(); renderSettings(); renderPrefs(); renderClips(); renderLastNote(); renderNav(); }
 
   // ---------- 시작 화면 ----------
   function jingle() {

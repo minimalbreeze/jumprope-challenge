@@ -118,6 +118,16 @@
     </div>`;
     wire();
   }
+  // ---------- 자유 연습 ----------
+  // 씰·탈락·비디오 판독 없이 그냥 뛰기. sec: 30 / 60 / 0(마음껏, "그만" 누를 때까지, 최대 5분)
+  function practice(sec, opts = {}) {
+    const label = sec ? (sec >= 60 ? `${sec / 60}분` : `${sec}초`) : "마음껏";
+    const seal = { no: 0, grade: 0, stage: 0, practice: true, stageName: "자유 연습", mission: `자유 연습 · ${label}`, goal: { type: "free", sec: sec || 300, open: !sec } };
+    cur = { seal, opts: { ...opts, practiceSec: sec } };
+    soundOn = opts.sound !== false;
+    open(); wire();
+    if (opts.firstTime) safety(); else camera();
+  }
   function wire() {
     layer.onclick = (e) => {
       const b = e.target.closest("[data-go]"); if (!b) return;
@@ -126,7 +136,7 @@
       else if (go === "safety") safety();
       else if (go === "guide") guide();
       else if (go === "camera") camera();
-      else if (go === "retry") { stopCamera(); start(cur.seal, { ...cur.opts, firstTime: false }); }
+      else if (go === "retry") { stopCamera(); cur.seal.practice ? practice(cur.opts.practiceSec, { ...cur.opts, firstTime: false }) : start(cur.seal, { ...cur.opts, firstTime: false }); }
       else if (go === "dev-clear") { const o = cur.opts; close(); o.onClear && o.onClear({ dev: true }); }
     };
   }
@@ -227,7 +237,7 @@
   // ---------- 4. 측정 (자동) ----------
   function run(camOk) {
     const seal = cur.seal, g = seal.goal;
-    const limit = g.type === "speed" ? g.sec : g.limit;
+    const limit = g.type === "speed" || g.type === "free" ? g.sec : g.limit;
     layer.innerHTML = `<div class="hud judge-hud">
       ${camOk ? `<video class="cam" id="cam" autoplay playsinline muted></video>` : `<div class="cam sim-bg"></div>`}
       <canvas class="cam pose" id="pose"></canvas>
@@ -288,7 +298,7 @@
       S.breaks.push(t - t0);
       // 연속·오래 뛰기는 걸리거나 멈추면 바로 탈락. 2세트는 그 세트만 다시, 30초·1분 도전은 이어서 센다.
       if (g.type === "streak" || g.type === "endure") { beep(220, 0.25, 0.18, "sawtooth"); return finish(false, why === "화면 밖으로 나갔어!" ? "화면 밖으로 나갔어. 머리부터 발끝까지 보이는 자리에서 뛰어 줘!" : "줄에 걸렸거나 멈췄어. 탈락! 다시 도전해 보자"); }
-      if (g.type === "sets") { S.combo = 0; el("hBig").textContent = "0"; }
+      if (g.type === "sets" || g.type === "free") { S.combo = 0; if (g.type === "sets") el("hBig").textContent = "0"; }
       S.contStart = 0;
       showJudge(why, "ms"); beep(220, 0.25, 0.18, "sawtooth");
     }
@@ -320,7 +330,7 @@
       el("hSub").textContent = "아이가 화면에 다 보이면 시작해!";
       say("화면에 서 주세요");
     };
-    el("quit").onclick = () => finish(false, "멈췄어. 쉬었다가 다시 하자!");
+    el("quit").onclick = () => finish(false, g.type === "free" ? "연습 끝!" : "멈췄어. 쉬었다가 다시 하자!");
 
     function countdown() {
       phase = "count";
@@ -333,7 +343,7 @@
         phase = "go"; t0 = performance.now(); S.lastSeen = t0;
         el("hExpBox").hidden = false;
         el("hBig").textContent = "START!"; el("hBig").classList.add("start");
-        el("hSub").textContent = g.type === "endure" ? "계속 뛰어!" : g.type === "sets" ? "1세트 시작!" : "뛰어!";
+        el("hSub").textContent = g.type === "endure" ? "계속 뛰어!" : g.type === "sets" ? "1세트 시작!" : g.type === "free" ? "마음껏 뛰어!" : "뛰어!";
         beep(990, 0.4, 0.25); say("시작!");
         startRecording();
         setTimeout(() => { el("hBig").classList.remove("start"); if (phase === "go") el("hBig").textContent = g.type === "endure" ? "0:00" : String(bigVal()); }, 700);
@@ -348,6 +358,7 @@
       S.endureBest = Math.max(S.endureBest, cont);
       switch (g.type) {
         case "speed": return { v: S.count, max: g.n, txt: `${S.count} / ${g.n}`, win: S.count >= g.n };
+        case "free": { const pb = cur.opts.practiceBest || 0; return { v: S.count, max: Math.max(pb, 1), txt: pb ? `${S.count} / 내 최고 ${pb}` : `${S.count}개`, win: false }; }
         case "endure": return { v: cont, max: g.sec, txt: `${fmt(cont)} / ${fmt(g.sec)}`, win: cont >= g.sec };
         case "sets": return { v: S.sets * g.n + S.combo, max: g.sets * g.n, txt: `${S.sets}/${g.sets}세트 · 연속 ${S.combo}/${g.n}`, win: S.sets >= g.sets };
         default: return { v: S.combo, max: g.n, txt: `${S.combo} / ${g.n}`, win: S.combo >= g.n };
@@ -362,7 +373,8 @@
       el("hExpTxt").textContent = p.txt;
       if (g.type === "endure") el("hBig").textContent = fmt(p.v);
       if (p.win && g.type !== "speed") return finish(true);
-      if (es >= limit) return finish(p.win, p.win ? "" : "시간이 끝났어!");
+      if (g.type === "free") { if (g.open) el("hTime").textContent = fmt(es); if (es >= limit) return finish(false, "시간 끝!"); }
+      else if (es >= limit) return finish(p.win, p.win ? "" : "시간이 끝났어!");
       raf = requestAnimationFrame(loop);
     }
 
@@ -429,7 +441,7 @@
         saved = true;
       } catch (e) {}
       cur.opts.onSaved && cur.opts.onSaved();
-      const rewards = cur.opts.onFinish ? cur.opts.onFinish({ win, count: S.count, best: S.best }) : null;
+      const rewards = cur.opts.onFinish ? cur.opts.onFinish({ win, count: S.count, best: S.best, practiceSec: g.type === "free" ? cur.opts.practiceSec : null }) : null;
       result({ win, why, blob, stats, analysis, saved, rewards });
     }
   }
@@ -449,6 +461,7 @@
   function rewardsHTML(r) {
     if (!r) return "";
     const items = [];
+    if (r.newPractice) items.push(`<div class="rw record"><b>🏅 NEW RECORD!</b><span>${esc(r.practiceLabel)} 최고 ${r.practiceBest}개</span></div>`);
     if (r.newBest) items.push(`<div class="rw record"><b>🏅 NEW RECORD!</b><span>최고 연속 기록 ${r.best}개</span></div>`);
     if (r.levelUp) items.push(`<div class="rw level"><b>⬆ 레벨 업! Lv.${r.lv}</b><span>"${esc(r.title)}" 칭호를 얻었어!</span></div>`);
     items.push(`<div class="rw exp"><span>이번에 뛴 ${r.gained}번이 경험치로 쌓였어 · 다음 레벨까지 ${r.toNext}번</span></div>`);
@@ -459,6 +472,7 @@
     const url = blob ? URL.createObjectURL(blob) : "";
     cleanup.push(() => url && URL.revokeObjectURL(url));
     const g = cur.seal.goal;
+    if (cur.seal.practice) return practiceResult({ blob, url, stats, analysis, saved, rewards });
     if (win) { fanfare(); say(rewards && rewards.levelUp ? "퀘스트 클리어! 레벨 업!" : "퀘스트 클리어!"); }
     else { sadTone(); say(rewards && rewards.newBest ? "아쉽지만 신기록이야!" : "아쉬워! 다시 도전하자"); }
     layer.innerHTML = `<div class="qwin pop center result-win">
@@ -477,5 +491,22 @@
     layer.scrollTop = 0;
   }
 
-  window.JumpChallenge = { start, close, feedbackHTML, statsHTML };
+  function practiceResult({ url, stats, analysis, saved, rewards }) {
+    const rec = rewards && (rewards.newPractice || rewards.newBest);
+    fanfare(); say(rec ? "신기록! 잘했어!" : `${stats.count}개! 잘했어!`);
+    layer.innerHTML = `<div class="qwin pop center result-win">
+      <div class="qwin-title">${esc(cur.seal.mission)} 끝!</div>
+      <div class="bigtext">GOOD JOB!</div>
+      ${url ? `<video class="replay" src="${url}" controls playsinline></video>` : ""}
+      ${statsHTML(stats, "free")}
+      ${rewardsHTML(rewards)}
+      ${npc(stats.count ? `${stats.count}개나 뛰었어! 아래 코치 노트를 보고 다음엔 더 잘해 보자.` : "이번엔 점프가 잘 안 잡혔어. 머리부터 발끝까지 보이게 찍어 줘!")}
+      ${feedbackHTML(analysis)}
+      <p class="parent-note">${saved ? "📼 영상과 코치 노트는 <b>내 영상</b>에 저장했어요. 이 폰에만 있어요." : "영상을 저장하지 못했어요."}</p>
+      <div class="qbtns"><button class="gbtn" data-go="retry">한 번 더!</button><button class="gbtn gray" data-go="close">닫기</button></div>
+    </div>`;
+    layer.scrollTop = 0;
+  }
+
+  window.JumpChallenge = { start, practice, close, feedbackHTML, statsHTML };
 })();
