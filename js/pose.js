@@ -53,29 +53,15 @@
   // 개발용 가짜 사람 영상: window.__simJump = true 면 1초에 2번 뛰고, window.__simRope = true 면 줄도 돌린다.
   // 화면(캔버스)에 실제로 그려서 카메라 대신 쓰므로, 줄 감지·녹화까지 그대로 확인할 수 있다.
   let simCanvas = null, simLm = null;
-  let simAudio = null, lastPh = 0;
   function simStream() {
     if (!simCanvas) { simCanvas = document.createElement("canvas"); simCanvas.width = 360; simCanvas.height = 640; drawSim(0); }
     const st = simCanvas.captureStream(30);
-    try { // 줄이 바닥을 치는 "탁" 소리도 가짜로 만든다
-      const ac = new (window.AudioContext || window.webkitAudioContext)(), dest = ac.createMediaStreamDestination();
-      simAudio = { ac, dest };
-      dest.stream.getAudioTracks().forEach((tr) => st.addTrack(tr));
-    } catch (e) {}
     return st;
-  }
-  function simClick() {
-    if (!simAudio) return;
-    const { ac, dest } = simAudio, len = Math.floor(ac.sampleRate * 0.02), b = ac.createBuffer(1, len, ac.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.exp(-i / (len / 5)) * 0.8;
-    const src = ac.createBufferSource(); src.buffer = b; src.connect(dest); src.start();
   }
   let noise = null;
   function drawSim(t) {
     if (!simCanvas) return;
     const ph = (t % 500) / 500, jumping = !!window.__simJump;
-    if (jumping && window.__simRope && ph < lastPh) simClick(); // 발이 떨어지는 순간 줄이 바닥을 친다
-    lastPh = ph;
     const lift = jumping ? Math.max(0, Math.sin(ph * Math.PI * 2)) * 0.05 : 0;
     const n = () => (Math.random() - 0.5) * 0.004;
     const P = (x, y) => ({ x: x + n(), y: y - lift + n(), z: 0, visibility: 0.99 });
@@ -108,41 +94,6 @@
     if (!simCanvas) simStream();
     const iv = setInterval(() => { const t = performance.now(); drawSim(t); onFrame(t, simLm); }, 33);
     return () => clearInterval(iv);
-  }
-
-  // ---------- 줄 소리 듣기 ----------
-  // 줄넘기 줄이 바닥을 치면 짧고 높은 "탁" 소리가 난다. 마이크 소리에서 높은 소리만 걸러(1.8kHz 이상)
-  // 갑자기 커지는 순간을 "탁"으로 기록한다. 점프 사이(발이 떨어질 때쯤)에 "탁"이 있으면 줄을 넘은 것으로 본다.
-  // 앱이 내는 소리(삑, 음성)는 hush()로 잠깐 무시한다. 기준값은 초기값이다.
-  class RopeEar {
-    constructor(stream) {
-      this.ok = false; this.onsets = [];
-      const tracks = stream && stream.getAudioTracks ? stream.getAudioTracks() : [];
-      if (!tracks.length) return;
-      try {
-        this.ac = new (window.AudioContext || window.webkitAudioContext)();
-        this.ac.resume && this.ac.resume();
-        const src = this.ac.createMediaStreamSource(stream), hp = this.ac.createBiquadFilter();
-        hp.type = "highpass"; hp.frequency.value = 1800;
-        this.an = this.ac.createAnalyser(); this.an.fftSize = 512;
-        src.connect(hp).connect(this.an);
-        this.buf = new Float32Array(this.an.fftSize);
-        this.floor = 0.002; this.prev = 0; this.last = 0; this.mute = 0; this.ok = true;
-        this.iv = setInterval(() => this.tick(), 10);
-      } catch (e) { this.ok = false; }
-    }
-    tick() {
-      this.an.getFloatTimeDomainData(this.buf);
-      let sum = 0; for (let i = 0; i < this.buf.length; i++) sum += this.buf[i] * this.buf[i];
-      const rms = Math.sqrt(sum / this.buf.length), t = performance.now();
-      if (rms > Math.max(this.floor * 5, 0.008) && rms > this.prev * 1.6 && t - this.last > 120 && t > this.mute) { this.onsets.push(t); this.last = t; }
-      else this.floor = this.floor * 0.98 + Math.min(rms, 0.05) * 0.02;
-      this.prev = rms;
-      while (this.onsets.length && t - this.onsets[0] > 15000) this.onsets.shift();
-    }
-    hush(ms) { this.mute = Math.max(this.mute, performance.now() + ms); }
-    heard(t1, t2) { return this.onsets.some((o) => o >= t1 && o <= t2); }
-    close() { clearInterval(this.iv); try { this.ac && this.ac.close(); } catch (e) {} }
   }
 
   // ---------- 점프 세기 ----------
@@ -250,5 +201,5 @@
     return { metrics: m, good: good.slice(0, 3), issues: issues.slice(0, 3) };
   }
 
-  window.JumpPose = { load, track, JumpDetector, RopeEar, analyze, simStream, SIM };
+  window.JumpPose = { load, track, JumpDetector, analyze, simStream, SIM };
 })();
