@@ -1,0 +1,20 @@
+{
+  "name": "jumprope-challenge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "줄넘기 등급 챌린지 — 초등학생 줄넘기 씰 도감",
+  "scripts": {
+    "build": "node scripts/build-www.mjs",
+    "ios": "npm run build && npx cap sync ios"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "@fontsource/black-han-sans": "^5.3.0",
+    "@fontsource/gowun-dodum": "^5.3.0",
+    "@fontsource/jua": "^5.3.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/ios": "^8.5.3"
+  }
+}

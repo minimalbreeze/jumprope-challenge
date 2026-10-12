@@ -13,7 +13,8 @@
   const pad = (n) => String(n).padStart(2, "0");
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-  const BASE = /github\.io$|minimalbreeze\.com$|^localhost$|^127\./.test(location.hostname)
+  // 아이폰 앱(capacitor://) 안에서는 주소가 웹 주소가 아니므로 공유 링크는 항상 실제 사이트 주소로 만든다
+  const BASE = /^https?:$/.test(location.protocol) && /github\.io$|minimalbreeze\.com$|^localhost$|^127\./.test(location.hostname)
     ? location.origin + location.pathname : SITE_URL;
 
   // ---------- 상태 ----------

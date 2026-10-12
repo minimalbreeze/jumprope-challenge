@@ -1,0 +1,10 @@
+{
+  "appId": "com.minimalbreeze.jumprope",
+  "appName": "줄넘기 챌린지",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#5ebcff",
+    "allowsLinkPreview": false
+  }
+}

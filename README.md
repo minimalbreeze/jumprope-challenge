@@ -66,3 +66,8 @@
 | `js/vendor/qrcode.js` | QR 생성 (qrcode-generator 1.4.4, MIT, Kazuhiko Arase) |
 
 저장 키는 전부 `jumprope:` 접두사를 쓴다.
+
+## 아이폰 앱
+Capacitor로 같은 웹앱을 아이폰 앱으로 감싼다(`ios/`, `capacitor.config.json`). 빌드·업로드는 GitHub Actions(`.github/workflows/ios-testflight.yml`)에서 하므로 맥이 없어도 된다. 순서는 **RELEASE-iOS.md**, App Store 등록 문구와 스크린샷은 `store/`.
+- 앱 안에서는 글꼴(`fonts/`, SIL OFL 1.1)과 AI 모델을 모두 앱에 넣어 외부 서버 요청이 없다.
+- 개인정보처리방침 `privacy.html`, 지원 `support.html`.
