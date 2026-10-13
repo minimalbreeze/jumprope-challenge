@@ -82,7 +82,7 @@
     const chip = $("#meChip");
     if (!state.grade) { chip.hidden = true; return; }
     chip.hidden = false;
-    chip.innerHTML = `<span class="me-av">${avatarSVG(state)}</span><span class="lv">${state.grade}학년</span><b>${esc(state.nick)}</b>${me.id ? `<span class="idtag">#${me.id}</span>` : ""}<span class="swap" aria-hidden="true">⇄</span>`;
+    chip.innerHTML = `<span class="me-av">${avatarSVG(state)}</span><span class="lv">${state.grade}학년</span><b>${esc(state.nick)}</b><span class="swap" aria-hidden="true">⇄</span>`;
     chip.setAttribute("role", "button"); chip.tabIndex = 0;
     chip.setAttribute("aria-label", `${state.nick}, 다른 아이로 바꾸기`);
     chip.onclick = openKids; chip.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openKids(); } };
