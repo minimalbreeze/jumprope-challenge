@@ -48,6 +48,10 @@
   const unlocked = (g) => g === 1 || courseDone(g - 1);
   const available = (s) => !has(s.no) && unlocked(s.grade) && (s.stage === 1 || has(s.no - 1));
   const sealByNo = (no) => SEALS[no - 1];
+  // 설정의 난이도(하·중·상)에 맞춘 목표. 기록이 없으면 중.
+  const lvOf = (k) => (k.level === 0 || k.level === 2 ? k.level : 1);
+  const questOf = (no) => window.JumpSeals.atLevel(sealByNo(no), lvOf(state));
+  const lvTag = () => (lvOf(state) === 1 ? "" : ` · 난이도 ${window.JumpSeals.LEVELS[lvOf(state)]}`);
 
   function sealHTML(seal, { owned, holo }) {
     const svg = sealSVG(seal, { empty: !owned, holo });
@@ -302,7 +306,7 @@
     });
   }
   function startQuest(no) {
-    JumpChallenge.start(sealByNo(no), {
+    JumpChallenge.start(questOf(no), {
       sound: state.sound !== false, dev: peek, nick: state.nick, myGrade: state.grade,
       firstTime: !state.safetyDone,
       onSafetyDone: () => { state.safetyDone = true; save(); },
@@ -332,7 +336,7 @@
   function renderNext() {
     const box = $("#nextQuest");
     if (!state.grade) return;
-    const next = SEALS.find(available);
+    const found = SEALS.find(available), next = found && questOf(found.no);
     if (!next) {
       box.innerHTML = `<span class="wtitle">오늘의 도전</span><div class="nq-seal">${window.JumpSeals.masterSVG(state.master ? masterInfo() : {}, !state.master)}</div>
         <div><h3>씰 30장 완성!</h3><p>모든 퀘스트를 깼어. 진짜 줄넘기왕이야!</p><button class="btn" id="nqCards">카드 보러 가기</button></div>`;
@@ -341,7 +345,7 @@
     }
     box.innerHTML = `<span class="wtitle">오늘의 도전</span>
       <div class="nq-seal">${sealSVG(next, { empty: true })}</div>
-      <div><h3>${esc(next.mission)}</h3><p>${next.grade}학년 코스 ${"★".repeat(next.stage)} · ${next.stageName}</p>
+      <div><h3>${esc(next.mission)}</h3><p>${next.grade}학년 코스 ${"★".repeat(next.stage)} · ${next.stageName}${lvTag()}</p>
       <button class="btn" id="nqGo">퀘스트 도전! ⚔️</button></div>`;
     $("#nqGo").onclick = () => startQuest(next.no);
   }
@@ -369,14 +373,14 @@
       body = `<div class="big">${sealHTML(seal, { owned: true, holo: rec.holo })}</div>
         <h2>${esc(seal.name)}</h2>
         <div class="muted">No.${pad(no)} · ${seal.animal} · ${seal.grade}학년 코스 ${seal.stage}단계 ${seal.stageName}</div>
-        <div><span class="pill">${metal} 씰</span> ${rec.holo ? '<span class="pill">✨ 반짝이</span>' : ""} <span class="pill">받은 날 ${rec.at}</span></div>
-        <div class="mission">${seal.mission}</div>`;
+        <div><span class="pill">${metal} 씰</span> ${rec.holo ? '<span class="pill">✨ 반짝이</span>' : ""} <span class="pill">받은 날 ${rec.at}</span>${rec.lv === 0 || rec.lv === 2 ? ` <span class="pill">난이도 ${window.JumpSeals.LEVELS[rec.lv]}</span>` : ""}</div>
+        <div class="mission">${window.JumpSeals.atLevel(seal, rec.lv).mission}</div>`;
       actions = `<button class="btn" id="repBtn">${isRep ? "대표 씰에서 내리기" : "대표 씰로 걸기"}</button><button class="btn ghost" data-close>닫기</button>`;
     } else {
       body = `<div class="big">${sealHTML(seal, { owned: peek, holo: false })}</div>
         <h2>No.${pad(no)} ${peek ? esc(seal.name) : "???"}</h2>
-        <div class="muted">${seal.grade}학년 코스 ${seal.stage}단계 ${seal.stageName} · ${metal} 씰</div>
-        <div class="mission">${seal.mission}</div>`;
+        <div class="muted">${seal.grade}학년 코스 ${seal.stage}단계 ${seal.stageName} · ${metal} 씰${lvTag()}</div>
+        <div class="mission">${questOf(no).mission}</div>`;
       if (!state.grade) {
         body += `<p class="note">먼저 위에서 학년을 고르고 도감을 시작해 줘.</p>`;
         actions = `<button class="btn ghost" data-close>닫기</button>`;
@@ -411,7 +415,7 @@
     const seal = sealByNo(no);
     const wasOpen = [1, 2, 3, 4, 5, 6].map(unlocked);
     const wasDone = courseDone(seal.grade);
-    state.seals[no] = { at: today(), holo: seal.grade > state.grade };
+    state.seals[no] = { at: today(), holo: seal.grade > state.grade, lv: lvOf(state) };
     save();
     const msgs = [];
     if (courseDone(seal.grade)) msgs.push(`${seal.grade}학년 코스 완주! 🎉`);
@@ -692,6 +696,13 @@
       b.onclick = () => { state.grade = g; save(); renderAll(); toast(`${g}학년으로 바꿨어`); };
       row.appendChild(b);
     }
+    const lr = $("#setLevel"); lr.querySelectorAll("button").forEach((b) => b.remove());
+    window.JumpSeals.LEVELS.forEach((name, lv) => {
+      const b = document.createElement("button"); b.className = "chip"; b.textContent = name;
+      b.setAttribute("aria-pressed", lvOf(state) === lv);
+      b.onclick = () => { state.level = lv; save(); renderAll(); toast(`난이도를 ${name}${lv ? "으로" : "로"} 바꿨어`); };
+      lr.appendChild(b);
+    });
   }
   // ---------- 내 영상 ----------
   // 아이 표시가 없는 예전 영상은 예전 기록을 옮겨 받은 첫 아이 것으로 본다

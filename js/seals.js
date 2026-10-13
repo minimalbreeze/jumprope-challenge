@@ -13,15 +13,26 @@
   const SPEED60 = [10, 20, 40, 60, 80, 100];  // 1분 안에
   const ENDURE = [10, 20, 30, 60, 90, 120];   // 안 끊기고 오래 (초)
   const mmss = (s) => (s >= 60 ? `${Math.floor(s / 60)}분${s % 60 ? ` ${s % 60}초` : ""}` : `${s}초`);
-  function goalOf(g, s) {
-    const i = g - 1;
+  // 난이도(설정): 0 하 · 1 중(기본) · 2 상. 같은 학년이어도 숙련도가 달라서 목표 숫자만 줄이거나 늘린다.
+  const LEVELS = ["하", "중", "상"];
+  const LV_RATE = [0.6, 1, 1.4];
+  const nice = (v, min) => Math.max(min, v < 10 ? Math.round(v) : Math.round(v / 5) * 5);
+  function goalOf(g, s, lv = 1) {
+    const i = g - 1, r = LV_RATE[lv] || 1;
+    const st = nice(STREAK[i] * r, 2), s30 = nice(SPEED30[i] * r, 3), s60 = nice(SPEED60[i] * r, 5), en = nice(ENDURE[i] * r, 5);
     switch (s) {
-      case 1: return { type: "streak", n: STREAK[i], limit: 120, text: `안 걸리고 연속 ${STREAK[i]}개` };
-      case 2: return { type: "speed", sec: 30, n: SPEED30[i], text: `30초 안에 ${SPEED30[i]}개` };
-      case 3: return { type: "sets", n: STREAK[i], sets: 2, limit: 150, text: `연속 ${STREAK[i]}개 × 2번` };
-      case 4: return { type: "speed", sec: 60, n: SPEED60[i], text: `1분 안에 ${SPEED60[i]}개` };
-      default: return { type: "endure", sec: ENDURE[i], limit: ENDURE[i] + 120, text: `${mmss(ENDURE[i])} 동안 안 끊기고` };
+      case 1: return { type: "streak", n: st, limit: 120, text: `안 걸리고 연속 ${st}개` };
+      case 2: return { type: "speed", sec: 30, n: s30, text: `30초 안에 ${s30}개` };
+      case 3: return { type: "sets", n: st, sets: 2, limit: 150, text: `연속 ${st}개 × 2번` };
+      case 4: return { type: "speed", sec: 60, n: s60, text: `1분 안에 ${s60}개` };
+      default: return { type: "endure", sec: en, limit: en + 120, text: `${mmss(en)} 동안 안 끊기고` };
     }
+  }
+  // 같은 씰인데 목표만 난이도에 맞춘 사본
+  function atLevel(seal, lv) {
+    if (!lv && lv !== 0 || lv === 1) return seal;
+    const goal = goalOf(seal.grade, seal.stage, lv);
+    return { ...seal, goal, mission: goal.text, level: lv };
   }
 
   // kind: 그림 종류 / body·belly: 몸 색 / eyes·mouth: 표정 / acc: 소품 / rope: 줄 색 / bg: 배경 무늬
@@ -635,5 +646,5 @@ ${secret
 </svg>`;
   }
 
-  window.JumpSeals = { SEALS, STAGES, METAL, metalOf, sealSVG, coachSVG, jumperSVG, COACH, masterSVG, courseCardSVG };
+  window.JumpSeals = { SEALS, STAGES, LEVELS, goalOf, atLevel, METAL, metalOf, sealSVG, coachSVG, jumperSVG, COACH, masterSVG, courseCardSVG };
 })();
