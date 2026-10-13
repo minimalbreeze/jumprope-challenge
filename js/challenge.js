@@ -113,7 +113,7 @@
         <div class="quest-goal"><span class="tag">목표</span><strong>${esc(seal.mission)}</strong><p>${ruleText(seal.goal)}</p></div>
         <div class="quest-reward"><span class="tag">보상</span><div class="reward-seal">${JumpSeals.sealSVG(seal, { empty: true })}</div><small>${holo ? "✨ 반짝이 씰" : "씰 1장"}</small></div>
       </div>
-      <p class="parent-note" style="text-align:center">📹 누군가 폰으로 찍어 주기만 하면 <b>AI 코치가 자동으로 세고 판정</b>해. 성공하면 <b>📺 비디오 판독</b>으로 줄을 넘었는지 확인해!</p>
+      <p class="parent-note" style="text-align:center">📹 폰을 <b>세워 두고</b> 네모 칸 안에 서면 <b>AI 코치가 자동으로 개수를 세</b>. 성공하면 <b>📺 비디오 판독</b>으로 줄을 넘었는지 같이 확인해!</p>
       <div class="qbtns"><button class="gbtn" data-go="${opts.firstTime ? "safety" : "camera"}">도전할래!</button><button class="gbtn gray" data-go="close">다음에</button></div>
     </div>`;
     wire();
@@ -172,15 +172,16 @@
   function guide() {
     cur.opts.onSafetyDone && cur.opts.onSafetyDone();
     layer.innerHTML = `<div class="qwin pop">
-      <div class="qwin-title">찍는 사람은 이렇게!</div>
-      ${npc("찍는 분은 폰을 들고 있기만 하면 돼요. 개수 세기와 판정은 제가 할게요!")}
+      <div class="qwin-title">폰은 이렇게 세워 둬!</div>
+      ${npc("폰은 들고 있지 말고 세워 두는 게 제일 정확해요. 개수 세기는 제가, 줄에 걸렸는지는 끝나고 비디오 판독으로 같이 봐요!")}
       <div class="place">
         <div class="place-pic">${filmSVG()}</div>
         <div class="place-cards">
-          <div class="pc ok"><b>① 3~4걸음 떨어져서 넉넉하게 찍기</b><small>뛰다가 앞뒤로 움직여도 머리부터 발끝까지 화면 안에 있게. 폰은 세로로, 흔들리지 않게.</small></div>
-          <div class="pc ok"><b>② 바닥에 X 표시 하기</b><small>테이프로 X를 붙이고 그 위에서 뛰면 덜 움직여.</small></div>
-          <div class="pc ok"><b>③ START 한 번만 누르기</b><small>아이가 화면에 다 보이면 3·2·1 하고 자동으로 시작해.</small></div>
-          <div class="pc ok"><b>④ 끝나면 비디오 판독</b><small>AI가 성공으로 보면 <b>📺 비디오 판독</b>이 열려. 영상을 보고 "인정" 또는 "노 카운트"만 눌러 줘. 영상은 "내 영상"에 저장돼.</small></div>
+          <div class="pc ok"><b>① 폰은 세워 두기</b><small>3~4걸음 떨어진 곳에 폰을 세로로 세워 둬. 벽·의자·물병에 기대도 되고, 거치대면 더 좋아. 손으로 들면 흔들려서 개수가 틀리기 쉬워.</small></div>
+          <div class="pc ok"><b>② 네모 칸 안에 서기</b><small>화면에 점선 네모가 나와. 머리부터 발끝까지 칸 안에 들어오면 초록색으로 바뀌고 3·2·1 시작!</small></div>
+          <div class="pc ok"><b>③ 바닥에 X 표시 하기</b><small>테이프로 X를 붙이고 그 위에서 뛰면 덜 움직여.</small></div>
+          <div class="pc ok"><b>④ START 누르고 폰에서 물러나기</b><small>START를 누르고 아이가 칸 안에 서면 자동으로 시작해.</small></div>
+          <div class="pc ok"><b>⑤ 끝나면 비디오 판독</b><small>AI가 성공으로 보면 <b>📺 비디오 판독</b>이 열려. 영상을 보고 "인정" 또는 "노 카운트"만 눌러 줘. 영상은 "내 영상"에 저장돼.</small></div>
           <div class="pc no"><b>❌ 역광·어두운 곳은 피하기</b><small>해를 등지고 서 있거나 너무 어두우면 AI 코치가 몸을 잘 못 봐.</small></div>
         </div>
       </div>
@@ -188,13 +189,12 @@
     </div>`;
   }
   function filmSVG() {
-    return `<svg viewBox="0 0 150 130" xmlns="http://www.w3.org/2000/svg" aria-label="한 사람이 폰으로 찍고 아이가 줄넘기하는 그림">
-      <path d="M44 52 L104 22 L104 112 Z" fill="#ffd43b" opacity=".25"/>
-      <circle cx="26" cy="34" r="12" fill="#ffdcc2" stroke="#4a2c2a" stroke-width="2.2"/><path d="M15 31 Q18 19 26 20 Q35 19 37 31 Q31 26 26 27 Q20 26 15 31Z" fill="#6b4a2a"/>
-      <rect x="13" y="47" width="26" height="40" rx="9" fill="#2f9e44" stroke="#4a2c2a" stroke-width="2.2"/>
-      <path d="M38 56 L48 50" stroke="#ffdcc2" stroke-width="6" stroke-linecap="round"/>
-      <rect x="44" y="42" width="9" height="15" rx="2" fill="#2b2f45" stroke="#4a2c2a" stroke-width="1.6"/>
-      <path d="M20 87 L19 110 M32 87 L33 110" stroke="#2d3f73" stroke-width="8" stroke-linecap="round"/>
+    return `<svg viewBox="0 0 150 130" xmlns="http://www.w3.org/2000/svg" aria-label="폰을 세워 두고 아이가 그 앞에서 줄넘기하는 그림">
+      <path d="M40 60 L104 22 L104 112 Z" fill="#ffd43b" opacity=".25"/>
+      <rect x="10" y="84" width="34" height="28" rx="3" fill="#c98b55" stroke="#4a2c2a" stroke-width="2.2"/>
+      <rect x="27" y="48" width="14" height="25" rx="3" fill="#2b2f45" stroke="#4a2c2a" stroke-width="2" transform="rotate(8 34 60)"/>
+      <circle cx="35" cy="54" r="2.4" fill="#7dd3fc" transform="rotate(8 34 60)"/>
+      <path d="M22 84 L32 72 L40 84" fill="none" stroke="#4a2c2a" stroke-width="2.4" stroke-linejoin="round"/>
       <path d="M108 66 Q125 128 142 66" fill="none" stroke="#ff6f61" stroke-width="2.6" stroke-linecap="round"/>
       <circle cx="125" cy="44" r="10" fill="#ffdcc2" stroke="#4a2c2a" stroke-width="2.2"/><path d="M115 41 Q118 31 125 32 Q133 31 135 41 Q130 37 125 38 Q119 37 115 41Z" fill="#4a2c2a"/>
       <rect x="114" y="55" width="22" height="28" rx="8" fill="#4dabf7" stroke="#4a2c2a" stroke-width="2.2"/>
@@ -220,14 +220,29 @@
   }
 
   const BONES = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
-  function drawPose(cv, video, lm, ok) {
+  // 시작 전 "네모 칸 안에 서기": 머리부터 발끝까지 칸 안에 있고, 너무 멀지 않아야 시작한다
+  const FRAME = { x0: 0.1, x1: 0.9, y0: 0.04, y1: 0.97, minH: 0.4 };
+  function framed(lm) {
+    if (!lm || !JumpPose.JumpDetector.fullBody(lm)) return { ok: false, msg: lm ? "발끝까지 보이게 해 줘" : "사람을 찾는 중…" };
+    const pts = [0, 11, 12, 23, 24, 25, 26, 27, 28].map((i) => lm[i]);
+    if (pts.some((p) => p.x < FRAME.x0 || p.x > FRAME.x1 || p.y < FRAME.y0 || p.y > FRAME.y1)) return { ok: false, msg: "네모 칸 가운데로 와 줘" };
+    if ((lm[27].y + lm[28].y) / 2 - lm[0].y < FRAME.minH) return { ok: false, msg: "조금 더 가까이 와 줘" };
+    return { ok: true };
+  }
+  function drawPose(cv, video, lm, ok, box) {
     const w = cv.clientWidth, h = cv.clientHeight, dpr = window.devicePixelRatio || 1;
     if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
     const x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, w, h);
-    if (!lm) return;
     let sc = 1, dx = 0, dy = 0, vw = w, vh = h;
     if (video && video.videoWidth) { vw = video.videoWidth; vh = video.videoHeight; sc = Math.max(w / vw, h / vh); dx = (w - vw * sc) / 2; dy = (h - vh * sc) / 2; }
     const P = (p) => [p.x * vw * sc + dx, p.y * vh * sc + dy];
+    if (box) { // 서야 할 칸 (화면 밖으로 넘치는 쪽은 화면 끝에 맞춘다)
+      const [bx0, by0] = P({ x: FRAME.x0, y: FRAME.y0 }), [bx1, by1] = P({ x: FRAME.x1, y: FRAME.y1 });
+      const l = Math.max(6, bx0), t = Math.max(6, by0), r = Math.min(w - 6, bx1), b = Math.min(h - 6, by1);
+      x.save(); x.setLineDash([14, 10]); x.lineWidth = 4; x.strokeStyle = box === "ok" ? "#7dffb0" : "#ffffffcc";
+      x.strokeRect(l, t, r - l, b - t); x.restore();
+    }
+    if (!lm) return;
     x.lineWidth = 5; x.lineCap = "round"; x.strokeStyle = ok ? "#7dffb0cc" : "#ffd43bcc";
     BONES.forEach(([a, b]) => { if (lm[a] && lm[b]) { const [x1, y1] = P(lm[a]), [x2, y2] = P(lm[b]); x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke(); } });
     x.fillStyle = "#fff";
@@ -255,7 +270,7 @@
     const v = el("cam"), cv = el("pose");
     if (v && stream) { v.srcObject = stream; v.play && v.play().catch(() => {}); }
     el("hBig").textContent = "";
-    el("hSub").textContent = "아이가 머리부터 발끝까지 보이게 찍어 줘";
+    el("hSub").textContent = "폰을 세워 두고, 아이는 네모 칸 안에 서 줘";
 
     const det = new JumpPose.JumpDetector();
     const S = { count: 0, combo: 0, best: 0, sets: 0, breaks: [], contStart: 0, endureBest: 0, lastJump: 0, lastSeen: 0, fever: false, wrist: [] };
@@ -306,17 +321,22 @@
     let broke = false;
     const stopTrack = JumpPose.track(v, (t, lm) => {
       const r = det.feed(t, lm);
-      drawPose(cv, v, lm, r.visible);
+      const pre = phase === "ready" || phase === "wait", fr = pre ? framed(lm) : null;
+      drawPose(cv, v, lm, r.visible, pre ? (fr.ok ? "ok" : "on") : null);
       const chip = el("hBody");
-      if (r.visible) { S.lastSeen = t; if (!seenSince) seenSince = t; chip.textContent = "✔ 몸이 다 보여요"; chip.className = "body-chip ok"; }
-      else { seenSince = 0; chip.textContent = lm ? "발끝까지 보이게 해 줘" : "사람을 찾는 중…"; chip.className = "body-chip"; }
+      if (r.visible) S.lastSeen = t;
+      if (pre) { // 시작 전에는 칸 안에 제대로 서야 3·2·1
+        if (fr.ok) { if (!seenSince) seenSince = t; chip.textContent = "✔ 칸 안에 딱 맞아요"; chip.className = "body-chip ok"; }
+        else { seenSince = 0; chip.textContent = fr.msg; chip.className = "body-chip"; }
+      } else if (r.visible) { chip.textContent = "✔ 몸이 다 보여요"; chip.className = "body-chip ok"; }
+      else { chip.textContent = lm ? "발끝까지 보이게 해 줘" : "사람을 찾는 중…"; chip.className = "body-chip"; }
       if (phase === "wait" && seenSince && t - seenSince > 700) countdown();
       if (phase !== "go") return;
       if (r.visible) { // 손목 움직임 (어깨 기준, 몸길이로 나눔) — 비디오 판독 때 AI 코치 의견으로만 쓴다
         const sx = (lm[11].x + lm[12].x) / 2, sy = (lm[11].y + lm[12].y) / 2, Sb = Math.max(0.05, (lm[27].y + lm[28].y) / 2 - sy);
         S.wrist.push([(lm[15].x - sx) / Sb, (lm[15].y - sy) / Sb, (lm[16].x - sx) / Sb, (lm[16].y - sy) / Sb]);
       }
-      if (r.jump && r.jump.t >= t0) { onJump(r.jump); broke = false; }
+      (r.jumps || []).forEach((j) => { if (j.t >= t0) { onJump(j); broke = false; } });
       const now = t;
       if (!broke && S.lastJump && now - S.lastJump > BREAK_MS) { broke = true; onBreak(now, "멈췄어! 다시!"); }
       if (!broke && S.lastSeen && now - S.lastSeen > LOST_MS) { broke = true; onBreak(now, "화면 밖으로 나갔어!"); }
@@ -327,8 +347,8 @@
       unlockAudio();
       el("goBtn").hidden = true; el("quit").hidden = false;
       phase = "wait";
-      el("hSub").textContent = "아이가 화면에 다 보이면 시작해!";
-      say("화면에 서 주세요");
+      el("hSub").textContent = "네모 칸 안에 서면 시작해!";
+      say("네모 칸 안에 서 주세요");
     };
     el("quit").onclick = () => finish(false, g.type === "free" ? "연습 끝!" : "멈췄어. 쉬었다가 다시 하자!");
 

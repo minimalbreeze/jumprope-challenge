@@ -97,7 +97,7 @@
   }
 
   // ---------- 점프 세기 ----------
-  const UP = 0.035, DOWN = 0.015, MIN_GAP = 200, WINDOW = 1500; // 1.5초: 아이가 앞뒤로 움직여도 기준 높이가 빨리 따라간다
+  const UP = 0.035, DOWN = 0.015, MIN_GAP = 200, WINDOW = 1500, RUN_GAP = 1500; // 1.5초: 아이가 앞뒤로 움직여도 기준 높이가 빨리 따라간다
   const BODY = [11, 12, 23, 24, 25, 26, 27, 28];
   const vis = (p) => p && (p.visibility == null || p.visibility > 0.45);
   const median = (a) => { if (!a.length) return 0; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
@@ -108,9 +108,12 @@
   }
 
   class JumpDetector {
-    constructor() { this.hist = []; this.scales = []; this.air = false; this.peak = 0; this.lastLand = 0; this.jumps = []; this.knee = 180; }
+    constructor() { this.hist = []; this.scales = []; this.air = false; this.peak = 0; this.lastLand = 0; this.jumps = []; this.knee = 180; this.ints = []; this.pending = null; }
     static fullBody(lm) { return !!lm && BODY.every((i) => vis(lm[i])); }
-    /** 프레임 하나 → { visible, h, jump? } */
+    /** 프레임 하나 → { visible, h, jumps? }
+     * 박자 확인: 폰이 흔들려서 생긴 한 번짜리 들썩임은 세지 않는다.
+     *  - 혼자 떨어진 점프는 '대기'로 두고, 1.5초 안에 다음 점프가 와야 둘 다 센다.
+     *  - 지금 박자보다 절반도 안 돼서 또 잡힌 건 흔들림으로 보고 버린다. */
     feed(t, lm) {
       if (!JumpDetector.fullBody(lm)) return { visible: false };
       const sy = (lm[11].y + lm[12].y) / 2, hy = (lm[23].y + lm[24].y) / 2, ay = (lm[27].y + lm[28].y) / 2;
@@ -127,16 +130,21 @@
         this.peak = Math.max(this.peak, h);
         if (h < DOWN) {
           this.air = false;
-          if (t - this.lastLand > MIN_GAP) {
+          const gap = this.lastLand ? t - this.lastLand : Infinity, beat = median(this.ints);
+          if (gap > MIN_GAP && !(this.ints.length >= 3 && gap < beat * 0.5)) {
             const sw = Math.abs(lm[11].x - lm[12].x) || 0.01;
             const jump = {
-              t, height: this.peak, interval: this.lastLand ? t - this.lastLand : 0,
+              t, height: this.peak, interval: gap <= RUN_GAP ? gap : 0,
               x: ((lm[23].x + lm[24].x) / 2) / S,
               spread: Math.abs(lm[15].x - lm[16].x) / sw,
               knee: kneeNow,
             };
-            this.lastLand = t; this.jumps.push(jump);
-            return { visible: true, h, jump };
+            this.lastLand = t;
+            if (gap > RUN_GAP) { this.ints = []; this.pending = jump; return { visible: true, h }; }
+            this.ints.push(gap); if (this.ints.length > 6) this.ints.shift();
+            const out = this.pending ? [this.pending, jump] : [jump];
+            this.pending = null; this.jumps.push(...out);
+            return { visible: true, h, jumps: out };
           }
         }
       }
