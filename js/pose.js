@@ -51,7 +51,7 @@
   }
 
   // 개발용 가짜 사람 영상: window.__simJump = true 면 1초에 2번 뛰고, window.__simRope = true 면 줄도 돌린다.
-  // 화면(캔버스)에 실제로 그려서 카메라 대신 쓰므로, 줄 감지·녹화까지 그대로 확인할 수 있다.
+  // 화면(캔버스)에 실제로 그려서 카메라 대신 쓰므로, 점프 세기·녹화까지 그대로 확인할 수 있다.
   let simCanvas = null, simLm = null;
   function simStream() {
     if (!simCanvas) { simCanvas = document.createElement("canvas"); simCanvas.width = 360; simCanvas.height = 640; drawSim(0); }
