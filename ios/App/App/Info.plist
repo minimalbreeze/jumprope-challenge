@@ -5,7 +5,14 @@
   <key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>ko</string>
+	<string>en</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>ko</string>
+		<string>en</string>
+	</array>
+	<key>CFBundleAllowMixedLocalizations</key>
+	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>줄넘기 점프 개수를 세고 자세를 분석하려고 카메라를 사용해요. 영상은 이 기기 안에서만 쓰이고 어디로도 보내지 않아요.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>

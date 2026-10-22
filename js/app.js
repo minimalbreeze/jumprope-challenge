@@ -5,8 +5,12 @@
   const KEY = "jumprope:state";          // 예전(한 명) 기록. 지우지 않고 첫 아이로 옮겨 쓴다.
   const KEY_P = "jumprope:profiles";     // 아이 여러 명 기록
   const MAX_KIDS = 5;
-  const ADJ = ["날쌘", "통통", "씩씩한", "반짝", "폴짝", "힘찬", "용감한", "신나는", "재빠른", "뽀송", "튼튼한", "꼬마"];
-  const ANI = ["토끼", "펭귄", "판다", "여우", "돌고래", "다람쥐", "고양이", "강아지", "치타", "개구리", "사자", "공룡"];
+  const EN = !!(window.I18N && window.I18N.lang === "en");
+  const t = (s) => (window.I18N ? window.I18N.t(s) : s);
+  const ADJ = EN ? ["Speedy", "Bouncy", "Brave", "Shiny", "Hoppy", "Mighty", "Bold", "Happy", "Quick", "Fluffy", "Strong", "Little"]
+    : ["날쌘", "통통", "씩씩한", "반짝", "폴짝", "힘찬", "용감한", "신나는", "재빠른", "뽀송", "튼튼한", "꼬마"];
+  const ANI = EN ? ["Bunny", "Penguin", "Panda", "Fox", "Dolphin", "Squirrel", "Kitty", "Puppy", "Cheetah", "Frog", "Lion", "Dino"]
+    : ["토끼", "펭귄", "판다", "여우", "돌고래", "다람쥐", "고양이", "강아지", "치타", "개구리", "사자", "공룡"];
   const AVATARS = [0, 1, 5, 6, 7, 8, 11, 21, 23, 29]; // 고를 수 있는 내 캐릭터 (씰 캐릭터 번호)
   const $ = (s) => document.querySelector(s);
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -606,7 +610,7 @@
     const cv = await makeCard(p, me.id, url);
     const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
     const imgURL = URL.createObjectURL(blob);
-    const file = new File([blob], `줄넘기도감_${state.nick.replace(/\s/g, "")}.png`, { type: "image/png" });
+    const file = new File([blob], `${t("줄넘기도감_")}${state.nick.replace(/\s/g, "")}.png`, { type: "image/png" });
     openSheet(`<h2>자랑 카드 완성!</h2>
       <img class="cardimg" src="${imgURL}" alt="${esc(state.nick)}의 씰 도감 카드">
       <div class="actions">
@@ -626,7 +630,7 @@
       (el) => {
         el.querySelector("#saveImg").onclick = async () => {
           try {
-            if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: "줄넘기 씰 도감" }); return; }
+            if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: t("줄넘기 씰 도감") }); return; }
           } catch (e) { if (e && e.name === "AbortError") return; }
           const a = document.createElement("a"); a.href = imgURL; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
           toast("저장이 안 되면 카드 그림을 길게 눌러서 저장해");
@@ -635,7 +639,7 @@
           navigator.clipboard.writeText(url).then(() => toast("링크를 복사했어")).catch(() => { const i = el.querySelector("#linkBox"); i.focus(); i.select(); toast("링크를 선택해 뒀어. 복사해서 보내 줘"); });
         };
         const sl = el.querySelector("#shareLink");
-        sl && (sl.onclick = () => navigator.share({ title: `${state.nick}의 줄넘기 씰 도감`, text: `나 줄넘기 씰 ${stats(state.seals).n}장 모았다! 진짜인지 확인해 봐 👀`, url }).catch(() => {}));
+        sl && (sl.onclick = () => navigator.share({ title: t(`${state.nick}의 줄넘기 씰 도감`), text: t(`나 줄넘기 씰 ${stats(state.seals).n}장 모았다! 진짜인지 확인해 봐 👀`), url }).catch(() => {}));
         el.querySelector("#previewBtn").onclick = async () => { closeSheet(); showViewer(await JumpID.open(token), true); };
       });
   }
@@ -702,6 +706,14 @@
       b.setAttribute("aria-pressed", lvOf(state) === lv);
       b.onclick = () => { state.level = lv; save(); renderAll(); toast(`난이도를 ${name}${lv ? "으로" : "로"} 바꿨어`); };
       lr.appendChild(b);
+    });
+    // 언어: 폰 기본 언어로 시작하고, 여기서 바꾸면 저장한 뒤 다시 연다 (기록은 그대로)
+    const lg = $("#setLang"); lg.querySelectorAll("button").forEach((b) => b.remove());
+    [["ko", "한국어"], ["en", "English"]].forEach(([code, name]) => {
+      const b = document.createElement("button"); b.className = "chip"; b.textContent = name;
+      b.setAttribute("aria-pressed", (window.I18N ? window.I18N.lang : "ko") === code);
+      b.onclick = () => { if (window.I18N && window.I18N.lang !== code) window.I18N.setLang(code); };
+      lg.appendChild(b);
     });
   }
   // ---------- 내 영상 ----------

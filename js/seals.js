@@ -6,26 +6,30 @@
  * 그림은 전부 SVG라서 오프라인에서도, 자랑 카드(canvas)에서도 똑같이 나온다.
  */
 (function () {
-  const STAGES = ["연속", "30초 도전", "연속 2세트", "1분 도전", "오래 뛰기"];
+  // 영어 모드면 이름·문구를 영어로 (js/i18n.js 가 먼저 언어를 정한다)
+  const EN = !!(window.I18N && window.I18N.lang === "en");
+  const T = (ko, en) => (EN ? en : ko);
+  const STAGES = EN ? ["Streak", "30-sec Dash", "Double Streak", "1-min Dash", "Endurance"] : ["연속", "30초 도전", "연속 2세트", "1분 도전", "오래 뛰기"];
   // 목표 숫자: 7살·1학년도 처음 몇 단계는 깰 수 있게 낮게 시작해서 학년마다 천천히 올린다. 아직 임시값.
   const STREAK = [3, 5, 10, 20, 30, 40];      // 안 걸리고 연속
   const SPEED30 = [5, 10, 20, 30, 40, 50];    // 30초 안에 (걸려도 이어서 셈)
   const SPEED60 = [10, 20, 40, 60, 80, 100];  // 1분 안에
   const ENDURE = [10, 20, 30, 60, 90, 120];   // 안 끊기고 오래 (초)
-  const mmss = (s) => (s >= 60 ? `${Math.floor(s / 60)}분${s % 60 ? ` ${s % 60}초` : ""}` : `${s}초`);
+  const mmss = EN ? (s) => (s >= 60 ? `${Math.floor(s / 60)} min${s % 60 ? ` ${s % 60} sec` : ""}` : `${s} sec`)
+    : (s) => (s >= 60 ? `${Math.floor(s / 60)}분${s % 60 ? ` ${s % 60}초` : ""}` : `${s}초`);
   // 난이도(설정): 0 하 · 1 중(기본) · 2 상. 같은 학년이어도 숙련도가 달라서 목표 숫자만 줄이거나 늘린다.
-  const LEVELS = ["하", "중", "상"];
+  const LEVELS = EN ? ["Easy", "Normal", "Hard"] : ["하", "중", "상"];
   const LV_RATE = [0.6, 1, 1.4];
   const nice = (v, min) => Math.max(min, v < 10 ? Math.round(v) : Math.round(v / 5) * 5);
   function goalOf(g, s, lv = 1) {
     const i = g - 1, r = LV_RATE[lv] || 1;
     const st = nice(STREAK[i] * r, 2), s30 = nice(SPEED30[i] * r, 3), s60 = nice(SPEED60[i] * r, 5), en = nice(ENDURE[i] * r, 5);
     switch (s) {
-      case 1: return { type: "streak", n: st, limit: 120, text: `안 걸리고 연속 ${st}개` };
-      case 2: return { type: "speed", sec: 30, n: s30, text: `30초 안에 ${s30}개` };
-      case 3: return { type: "sets", n: st, sets: 2, limit: 150, text: `연속 ${st}개 × 2번` };
-      case 4: return { type: "speed", sec: 60, n: s60, text: `1분 안에 ${s60}개` };
-      default: return { type: "endure", sec: en, limit: en + 120, text: `${mmss(en)} 동안 안 끊기고` };
+      case 1: return { type: "streak", n: st, limit: 120, text: T(`안 걸리고 연속 ${st}개`, `${st} in a row, no trips`) };
+      case 2: return { type: "speed", sec: 30, n: s30, text: T(`30초 안에 ${s30}개`, `${s30} jumps in 30 sec`) };
+      case 3: return { type: "sets", n: st, sets: 2, limit: 150, text: T(`연속 ${st}개 × 2번`, `${st} in a row × 2`) };
+      case 4: return { type: "speed", sec: 60, n: s60, text: T(`1분 안에 ${s60}개`, `${s60} jumps in 1 min`) };
+      default: return { type: "endure", sec: en, limit: en + 120, text: T(`${mmss(en)} 동안 안 끊기고`, `${mmss(en)} without stopping`) };
     }
   }
   // 같은 씰인데 목표만 난이도에 맞춘 사본
@@ -38,41 +42,41 @@
   // kind: 그림 종류 / body·belly: 몸 색 / eyes·mouth: 표정 / acc: 소품 / rope: 줄 색 / bg: 배경 무늬
   const CHARS = [
     // 1학년 · 동
-    { name: "콩콩이", animal: "토끼", kind: "rabbit", body: "#fff7f2", eyes: "dot", mouth: "w", rope: "#ff6f61", bg: "hearts" },
-    { name: "삐약이", animal: "병아리", kind: "chick", body: "#ffe45c", eyes: "sparkle", mouth: "none", rope: "#4dabf7", bg: "dots" },
-    { name: "도토리", animal: "다람쥐", kind: "squirrel", body: "#dd8a4b", belly: "#ffe8cc", eyes: "dot", mouth: "smile", rope: "#51cf66", bg: "leaves" },
-    { name: "볼볼이", animal: "햄스터", kind: "hamster", body: "#f7c48d", belly: "#fff4e0", eyes: "sparkle", mouth: "open", rope: "#cc5de8", bg: "stars" },
-    { name: "뭉치", animal: "아기곰", kind: "bear", body: "#b07a52", belly: "#f3d6b6", eyes: "dot", mouth: "smile", acc: ["headband"], rope: "#ffd43b", bg: "rays" },
+    { name: T("콩콩이", "Boing"), animal: T("토끼", "Bunny"), kind: "rabbit", body: "#fff7f2", eyes: "dot", mouth: "w", rope: "#ff6f61", bg: "hearts" },
+    { name: T("삐약이", "Peep"), animal: T("병아리", "Chick"), kind: "chick", body: "#ffe45c", eyes: "sparkle", mouth: "none", rope: "#4dabf7", bg: "dots" },
+    { name: T("도토리", "Acorn"), animal: T("다람쥐", "Squirrel"), kind: "squirrel", body: "#dd8a4b", belly: "#ffe8cc", eyes: "dot", mouth: "smile", rope: "#51cf66", bg: "leaves" },
+    { name: T("볼볼이", "Cheeks"), animal: T("햄스터", "Hamster"), kind: "hamster", body: "#f7c48d", belly: "#fff4e0", eyes: "sparkle", mouth: "open", rope: "#cc5de8", bg: "stars" },
+    { name: T("뭉치", "Fluff"), animal: T("아기곰", "Bear Cub"), kind: "bear", body: "#b07a52", belly: "#f3d6b6", eyes: "dot", mouth: "smile", acc: ["headband"], rope: "#ffd43b", bg: "rays" },
     // 2학년 · 동
-    { name: "개굴", animal: "개구리", kind: "frog", body: "#7fd88d", belly: "#dcf7a8", eyes: "dot", mouth: "wide", rope: "#ff922b", bg: "bubbles" },
-    { name: "뒤뚱", animal: "펭귄", kind: "penguin", body: "#3a4766", eyes: "sparkle", mouth: "none", acc: ["bow"], rope: "#ff6b9a", bg: "snow" },
-    { name: "냥냥", animal: "고양이", kind: "cat", body: "#ffc27d", eyes: "happy", mouth: "w", rope: "#5c7cfa", bg: "paws" },
-    { name: "멍멍", animal: "강아지", kind: "dog", body: "#f5dfc3", eyes: "sparkle", mouth: "tongue", rope: "#20c997", bg: "bones" },
-    { name: "꽥꽥", animal: "오리", kind: "duck", body: "#ffffff", eyes: "dot", mouth: "none", acc: ["cap"], rope: "#fa5252", bg: "waves" },
+    { name: T("개굴", "Ribbit"), animal: T("개구리", "Frog"), kind: "frog", body: "#7fd88d", belly: "#dcf7a8", eyes: "dot", mouth: "wide", rope: "#ff922b", bg: "bubbles" },
+    { name: T("뒤뚱", "Waddle"), animal: T("펭귄", "Penguin"), kind: "penguin", body: "#3a4766", eyes: "sparkle", mouth: "none", acc: ["bow"], rope: "#ff6b9a", bg: "snow" },
+    { name: T("냥냥", "Meow"), animal: T("고양이", "Cat"), kind: "cat", body: "#ffc27d", eyes: "happy", mouth: "w", rope: "#5c7cfa", bg: "paws" },
+    { name: T("멍멍", "Woof"), animal: T("강아지", "Puppy"), kind: "dog", body: "#f5dfc3", eyes: "sparkle", mouth: "tongue", rope: "#20c997", bg: "bones" },
+    { name: T("꽥꽥", "Quack"), animal: T("오리", "Duck"), kind: "duck", body: "#ffffff", eyes: "dot", mouth: "none", acc: ["cap"], rope: "#fa5252", bg: "waves" },
     // 3학년 · 은
-    { name: "깡총", animal: "캥거루", kind: "kangaroo", body: "#d9a877", belly: "#f7e3c6", eyes: "dot", mouth: "smile", rope: "#339af0", bg: "zigzag" },
-    { name: "대롱", animal: "판다", kind: "panda", body: "#ffffff", eyes: "dot", mouth: "w", rope: "#40c057", bg: "bamboo" },
-    { name: "꼬리", animal: "여우", kind: "fox", body: "#ff8f45", eyes: "wink", mouth: "smile", rope: "#845ef7", bg: "flowers" },
-    { name: "부엉", animal: "부엉이", kind: "owl", body: "#a16f50", belly: "#ecd6b8", eyes: "big", mouth: "none", rope: "#fcc419", bg: "night" },
-    { name: "유칼", animal: "코알라", kind: "koala", body: "#aab2bd", belly: "#e8ebf0", eyes: "dot", mouth: "smile", acc: ["headband"], rope: "#ff8787", bg: "leaves" },
+    { name: T("깡총", "Bounce"), animal: T("캥거루", "Kangaroo"), kind: "kangaroo", body: "#d9a877", belly: "#f7e3c6", eyes: "dot", mouth: "smile", rope: "#339af0", bg: "zigzag" },
+    { name: T("대롱", "Dangle"), animal: T("판다", "Panda"), kind: "panda", body: "#ffffff", eyes: "dot", mouth: "w", rope: "#40c057", bg: "bamboo" },
+    { name: T("꼬리", "Foxy"), animal: T("여우", "Fox"), kind: "fox", body: "#ff8f45", eyes: "wink", mouth: "smile", rope: "#845ef7", bg: "flowers" },
+    { name: T("부엉", "Hoot"), animal: T("부엉이", "Owl"), kind: "owl", body: "#a16f50", belly: "#ecd6b8", eyes: "big", mouth: "none", rope: "#fcc419", bg: "night" },
+    { name: T("유칼", "Euca"), animal: T("코알라", "Koala"), kind: "koala", body: "#aab2bd", belly: "#e8ebf0", eyes: "dot", mouth: "smile", acc: ["headband"], rope: "#ff8787", bg: "leaves" },
     // 4학년 · 은
-    { name: "꿀꿀", animal: "돼지", kind: "pig", body: "#ffb8c9", eyes: "happy", mouth: "smile", rope: "#22b8cf", bg: "hearts" },
-    { name: "몽실", animal: "양", kind: "sheep", body: "#fff3e0", eyes: "dot", mouth: "w", rope: "#f06595", bg: "clouds" },
-    { name: "끽끽", animal: "원숭이", kind: "monkey", body: "#a06e48", belly: "#f4d8b9", eyes: "sparkle", mouth: "open", rope: "#94d82d", bg: "crescents" },
-    { name: "가시", animal: "고슴도치", kind: "hedgehog", body: "#f3dcc1", eyes: "dot", mouth: "smile", rope: "#4c6ef5", bg: "dots" },
-    { name: "찍찍", animal: "생쥐", kind: "mouse", body: "#c6cbd4", belly: "#eff1f5", eyes: "sparkle", mouth: "w", acc: ["medal"], rope: "#ff922b", bg: "cheese" },
+    { name: T("꿀꿀", "Oink"), animal: T("돼지", "Pig"), kind: "pig", body: "#ffb8c9", eyes: "happy", mouth: "smile", rope: "#22b8cf", bg: "hearts" },
+    { name: T("몽실", "Puff"), animal: T("양", "Sheep"), kind: "sheep", body: "#fff3e0", eyes: "dot", mouth: "w", rope: "#f06595", bg: "clouds" },
+    { name: T("끽끽", "Ook"), animal: T("원숭이", "Monkey"), kind: "monkey", body: "#a06e48", belly: "#f4d8b9", eyes: "sparkle", mouth: "open", rope: "#94d82d", bg: "crescents" },
+    { name: T("가시", "Spike"), animal: T("고슴도치", "Hedgehog"), kind: "hedgehog", body: "#f3dcc1", eyes: "dot", mouth: "smile", rope: "#4c6ef5", bg: "dots" },
+    { name: T("찍찍", "Squeak"), animal: T("생쥐", "Mouse"), kind: "mouse", body: "#c6cbd4", belly: "#eff1f5", eyes: "sparkle", mouth: "w", acc: ["medal"], rope: "#ff922b", bg: "cheese" },
     // 5학년 · 금
-    { name: "폴짝", animal: "메뚜기", kind: "grasshopper", body: "#8fe89c", belly: "#d6fadb", eyes: "big", mouth: "smile", rope: "#e64980", bg: "grass" },
-    { name: "어흥", animal: "호랑이", kind: "tiger", body: "#ffab52", eyes: "dot", mouth: "w", rope: "#1c7ed6", bg: "stripes" },
-    { name: "갈기", animal: "사자", kind: "lion", body: "#ffd36b", eyes: "happy", mouth: "smile", acc: ["medal"], rope: "#d6336c", bg: "rays" },
-    { name: "퐁당", animal: "돌고래", kind: "dolphin", body: "#78c2fc", belly: "#e7f5ff", eyes: "sparkle", mouth: "smile", rope: "#fab005", bg: "waves" },
-    { name: "티노", animal: "공룡", kind: "dino", body: "#66c8b8", belly: "#d6f5ee", eyes: "dot", mouth: "open", rope: "#ff6b6b", bg: "zigzag" },
+    { name: T("폴짝", "Hopper"), animal: T("메뚜기", "Grasshopper"), kind: "grasshopper", body: "#8fe89c", belly: "#d6fadb", eyes: "big", mouth: "smile", rope: "#e64980", bg: "grass" },
+    { name: T("어흥", "Roar"), animal: T("호랑이", "Tiger"), kind: "tiger", body: "#ffab52", eyes: "dot", mouth: "w", rope: "#1c7ed6", bg: "stripes" },
+    { name: T("갈기", "Mane"), animal: T("사자", "Lion"), kind: "lion", body: "#ffd36b", eyes: "happy", mouth: "smile", acc: ["medal"], rope: "#d6336c", bg: "rays" },
+    { name: T("퐁당", "Splash"), animal: T("돌고래", "Dolphin"), kind: "dolphin", body: "#78c2fc", belly: "#e7f5ff", eyes: "sparkle", mouth: "smile", rope: "#fab005", bg: "waves" },
+    { name: T("티노", "Tino"), animal: T("공룡", "Dinosaur"), kind: "dino", body: "#66c8b8", belly: "#d6f5ee", eyes: "dot", mouth: "open", rope: "#ff6b6b", bg: "zigzag" },
     // 6학년 · 금
-    { name: "번개", animal: "치타", kind: "cheetah", body: "#ffd94a", eyes: "cool", mouth: "smile", rope: "#7048e8", bg: "bolts" },
-    { name: "눈송이", animal: "북극곰", kind: "polarbear", body: "#f4f8ff", belly: "#ffffff", eyes: "sparkle", mouth: "smile", acc: ["scarf"], rope: "#4dabf7", bg: "snow" },
-    { name: "하늘", animal: "독수리", kind: "eagle", body: "#8f5d40", eyes: "dot", mouth: "none", rope: "#12b886", bg: "clouds" },
-    { name: "반짝", animal: "유니콘", kind: "unicorn", body: "#ffffff", eyes: "sparkle", mouth: "smile", rope: "#f783ac", bg: "rainbow" },
-    { name: "용용", animal: "아기용", kind: "dragon", body: "#9a7bff", belly: "#e8dfff", eyes: "sparkle", mouth: "open", acc: ["crown"], rope: "#ff922b", bg: "flames" },
+    { name: T("번개", "Bolt"), animal: T("치타", "Cheetah"), kind: "cheetah", body: "#ffd94a", eyes: "cool", mouth: "smile", rope: "#7048e8", bg: "bolts" },
+    { name: T("눈송이", "Snowy"), animal: T("북극곰", "Polar Bear"), kind: "polarbear", body: "#f4f8ff", belly: "#ffffff", eyes: "sparkle", mouth: "smile", acc: ["scarf"], rope: "#4dabf7", bg: "snow" },
+    { name: T("하늘", "Sky"), animal: T("독수리", "Eagle"), kind: "eagle", body: "#8f5d40", eyes: "dot", mouth: "none", rope: "#12b886", bg: "clouds" },
+    { name: T("반짝", "Sparky"), animal: T("유니콘", "Unicorn"), kind: "unicorn", body: "#ffffff", eyes: "sparkle", mouth: "smile", rope: "#f783ac", bg: "rainbow" },
+    { name: T("용용", "Drago"), animal: T("아기용", "Baby Dragon"), kind: "dragon", body: "#9a7bff", belly: "#e8dfff", eyes: "sparkle", mouth: "open", acc: ["crown"], rope: "#ff922b", bg: "flames" },
   ];
 
   const SEALS = CHARS.map((c, i) => {
@@ -82,9 +86,9 @@
   });
 
   const METAL = {
-    bronze: { a: "#ffd2ad", b: "#c9763f", c: "#8a4a25", ring1: "#e09a64", ring2: "#7a3f1d", label: "동" },
-    silver: { a: "#ffffff", b: "#aeb9c4", c: "#5d6874", ring1: "#e6ecf2", ring2: "#5b6672", label: "은" },
-    gold: { a: "#fff6c4", b: "#f0b829", c: "#a06d00", ring1: "#ffe27a", ring2: "#9a6400", label: "금" },
+    bronze: { a: "#ffd2ad", b: "#c9763f", c: "#8a4a25", ring1: "#e09a64", ring2: "#7a3f1d", label: T("동", "Bronze") },
+    silver: { a: "#ffffff", b: "#aeb9c4", c: "#5d6874", ring1: "#e6ecf2", ring2: "#5b6672", label: T("은", "Silver") },
+    gold: { a: "#fff6c4", b: "#f0b829", c: "#a06d00", ring1: "#ffe27a", ring2: "#9a6400", label: T("금", "Gold") },
     grey: { a: "#eef1f3", b: "#c7cdd2", c: "#9aa3aa", ring1: "#dfe4e8", ring2: "#a3abb2", label: "" },
   };
   const metalOf = (g) => (g <= 2 ? "bronze" : g <= 4 ? "silver" : "gold");
@@ -506,7 +510,7 @@
     const ribbonCol = empty ? "#aab2b9" : ["#e8484a", "#ff8a3d", "#2f9e44", "#1c7ed6", "#7048e8"][seal.stage - 1];
     const label = empty ? "???" : seal.name;
     const holo = opts.holo && !empty ? `<radialGradient id="${uid}h" cx="30%" cy="25%" r="90%"><stop offset="0" stop-color="#ff9ad5" stop-opacity=".55"/><stop offset=".3" stop-color="#ffe17a" stop-opacity=".45"/><stop offset=".55" stop-color="#8affc1" stop-opacity=".45"/><stop offset=".8" stop-color="#7ad7ff" stop-opacity=".5"/><stop offset="1" stop-color="#c39bff" stop-opacity=".55"/></radialGradient>` : "";
-    return `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${empty ? `아직 못 모은 씰 No.${seal.no}` : `${seal.grade}학년 코스 ${seal.stage}단계 ${m.label} 씰, ${seal.animal} ${seal.name}${opts.holo ? ", 반짝이" : ""}`}">
+    return `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${empty ? T(`아직 못 모은 씰 No.${seal.no}`, `Seal No.${seal.no}, not collected yet`) : T(`${seal.grade}학년 코스 ${seal.stage}단계 ${m.label} 씰, ${seal.animal} ${seal.name}${opts.holo ? ", 반짝이" : ""}`, `Grade ${seal.grade} course stage ${seal.stage}, ${m.label} seal, ${seal.animal} ${seal.name}${opts.holo ? ", shiny" : ""}`)}">
 <defs>
 <radialGradient id="${uid}m" cx="36%" cy="28%" r="85%"><stop offset="0" stop-color="${m.a}"/><stop offset=".65" stop-color="${m.b}"/><stop offset="1" stop-color="${m.c}"/></radialGradient>
 <linearGradient id="${uid}r" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${m.ring1}"/><stop offset=".5" stop-color="${m.b}"/><stop offset="1" stop-color="${m.ring2}"/></linearGradient>
@@ -536,7 +540,7 @@ ${stars}
   }
 
   /** 안내 캐릭터 (콩콩 코치) */
-  const COACH = { name: "콩콩 코치", kind: "rabbit", body: "#fff7f2", eyes: "sparkle", mouth: "open", rope: "#ff6f61", acc: ["coachcap"] };
+  const COACH = { name: T("콩콩 코치", "Coach Boing"), kind: "rabbit", body: "#fff7f2", eyes: "sparkle", mouth: "open", rope: "#ff6f61", acc: ["coachcap"] };
   function coachSVG() {
     const uid = "c" + ++uidN + "_";
     return `<svg viewBox="-55 -62 110 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><radialGradient id="${uid}b" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="${COACH.body}"/><stop offset="1" stop-color="${shade(COACH.body, -0.14)}"/></radialGradient></defs>${character(COACH, uid)}</svg>`;
@@ -574,7 +578,7 @@ ${character(c, uid, true).replace('<ellipse cx="0" cy="36.5" rx="25" ry="4.2" fi
     }
     const font = "'Black Han Sans','Jua','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
     const king = { ...SEALS[29], acc: ["crown"], mouth: "open", eyes: "sparkle" };
-    return `<svg viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${secret ? "아직 잠긴 시크릿 마스터 카드" : `${esc(info.nick)}의 줄넘기 마스터 카드`}">
+    return `<svg viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${secret ? T("아직 잠긴 시크릿 마스터 카드", "Secret master card, locked") : T(`${esc(info.nick)}의 줄넘기 마스터 카드`, `${esc(info.nick)}'s jump rope master card`)}">
 <defs>
 <linearGradient id="${uid}rb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${secret ? "#6b7488" : "#ff7ab6"}"/><stop offset=".25" stop-color="${secret ? "#8a93a6" : "#ffd36b"}"/><stop offset=".5" stop-color="${secret ? "#6b7488" : "#7dffb0"}"/><stop offset=".75" stop-color="${secret ? "#8a93a6" : "#6bd6ff"}"/><stop offset="1" stop-color="${secret ? "#6b7488" : "#b58bff"}"/></linearGradient>
 <radialGradient id="${uid}bg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="${secret ? "#3a4256" : "#4b66c0"}"/><stop offset="1" stop-color="${secret ? "#151a26" : "#141d3d"}"/></radialGradient>
@@ -589,7 +593,7 @@ ${character(c, uid, true).replace('<ellipse cx="0" cy="36.5" rx="25" ry="4.2" fi
 <g clip-path="url(#${uid}c)"><g fill="${secret ? "#ffffff" : "#ffd84a"}" opacity="${secret ? 0.04 : 0.12}">${rays}</g>
 ${secret ? "" : `<g fill="#fff">${[[40, 70, 1.2], [262, 92, 1], [52, 300, .9], [250, 286, 1.3], [30, 180, .7], [272, 200, .8]].map(([x, y, k]) => `<path d="M0 -6 L1.5 -1.5 L6 0 L1.5 1.5 L0 6 L-1.5 1.5 L-6 0 L-1.5 -1.5Z" transform="translate(${x} ${y}) scale(${k})"/>`).join("")}</g>`}</g>
 <text x="150" y="66" text-anchor="middle" font-family="${font}" font-size="44" fill="${secret ? "#8a93a6" : `url(#${uid}au)`}" stroke="${secret ? "#151a26" : "#7a4a00"}" stroke-width="5" paint-order="stroke" letter-spacing="2">${secret ? "SECRET" : "MASTER"}</text>
-<text x="150" y="88" text-anchor="middle" font-family="${font}" font-size="15" fill="#fff" opacity=".9">${secret ? "시크릿 카드" : "줄넘기왕 · 씰 30 / 30 완성"}</text>
+<text x="150" y="88" text-anchor="middle" font-family="${font}" font-size="15" fill="#fff" opacity=".9">${secret ? T("시크릿 카드", "SECRET CARD") : T("줄넘기왕 · 씰 30 / 30 완성", "Rope King · 30 / 30 seals")}</text>
 ${ring}
 <circle cx="${cx}" cy="${cy}" r="88" fill="url(#${uid}md)" stroke="${secret ? "#151a26" : "#7a4a00"}" stroke-width="3"/>
 <circle cx="${cx}" cy="${cy}" r="78" fill="${secret ? "#2a3042" : "#2d3f73"}" stroke="${secret ? "#8a93a6" : "#fff6c4"}" stroke-width="2"/>
@@ -597,8 +601,8 @@ ${ring}
 ${secret ? `<text x="${cx}" y="${cy + 22}" text-anchor="middle" font-family="${font}" font-size="64" fill="#8a93a6">?</text>` : ""}
 <rect x="34" y="320" width="232" height="70" rx="12" fill="${secret ? "#2a3042" : "#fffdf5"}" stroke="${secret ? "#5b6478" : "url(#" + uid + "au)"}" stroke-width="3"/>
 ${secret
-      ? `<text x="150" y="350" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">씰 30장을 모두 모으면</text><text x="150" y="372" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">이 카드가 열려요</text>`
-      : `<text x="150" y="352" text-anchor="middle" font-family="${font}" font-size="24" fill="#2d3f73">${esc(info.nick)}</text><text x="150" y="376" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6b7290">#${esc(info.id || "----")}${info.date ? ` · ${esc(info.date)} 발급` : ""}</text>`}
+      ? `<text x="150" y="350" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">${T("씰 30장을 모두 모으면", "Collect all 30 seals")}</text><text x="150" y="372" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">${T("이 카드가 열려요", "to unlock this card")}</text>`
+      : `<text x="150" y="352" text-anchor="middle" font-family="${font}" font-size="24" fill="#2d3f73">${esc(info.nick)}</text><text x="150" y="376" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6b7290">#${esc(info.id || "----")}${info.date ? T(` · ${esc(info.date)} 발급`, ` · issued ${esc(info.date)}`) : ""}</text>`}
 <text x="276" y="404" text-anchor="end" font-family="sans-serif" font-size="8" font-weight="700" fill="#ffffff" opacity=".55">JUMPROPE CHALLENGE · SECRET</text>
 </svg>`;
   }
@@ -620,7 +624,7 @@ ${secret
     }
     const grads = cast.map((c, i) => `<radialGradient id="${uid}${i}b" cx="35%" cy="28%" r="80%"><stop offset="0" stop-color="${shade(c.body, 0.45)}"/><stop offset=".55" stop-color="${c.body}"/><stop offset="1" stop-color="${shade(c.body, -0.14)}"/></radialGradient>`).join("");
     const chars = cast.map((c, i) => { const [x, y, k] = spots[i]; return `<g transform="translate(${150 + x} ${214 + y}) scale(${k})">${character(c, uid + i)}</g>`; }).join("");
-    return `<svg viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${secret ? `${g}학년 시크릿 카드, 아직 잠김` : `${esc(info.nick)}의 ${g}학년 클리어 카드`}">
+    return `<svg viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${secret ? T(`${g}학년 시크릿 카드, 아직 잠김`, `Grade ${g} secret card, locked`) : T(`${esc(info.nick)}의 ${g}학년 클리어 카드`, `${esc(info.nick)}'s Grade ${g} clear card`)}">
 <defs>
 <linearGradient id="${uid}fr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${m.ring1}"/><stop offset=".5" stop-color="${m.b}"/><stop offset="1" stop-color="${m.ring2}"/></linearGradient>
 <radialGradient id="${uid}bg" cx="50%" cy="45%" r="75%"><stop offset="0" stop-color="${secret ? c1 : "#ffffff"}"/><stop offset=".45" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></radialGradient>
@@ -634,14 +638,14 @@ ${grads}
 <circle cx="44" cy="46" r="22" fill="${secret ? "#2a3042" : "#2d3f73"}" stroke="${m.ring1}" stroke-width="3"/>
 <text x="44" y="56" text-anchor="middle" font-family="${font}" font-size="28" fill="${secret ? "#8a93a6" : "#ffd84a"}">${g}</text>
 <text x="160" y="62" text-anchor="middle" font-family="${font}" font-size="40" fill="${secret ? "#8a93a6" : "#fff"}" stroke="${secret ? "#151a26" : "#2d3f73"}" stroke-width="6" paint-order="stroke" letter-spacing="2">${secret ? "SECRET" : "CLEAR!"}</text>
-<text x="160" y="86" text-anchor="middle" font-family="${font}" font-size="15" fill="${secret ? "#c3c9d6" : "#2d3f73"}">${g}학년 코스 ${secret ? "시크릿 카드" : "완주 · 씰 5 / 5"}</text>
+<text x="160" y="86" text-anchor="middle" font-family="${font}" font-size="15" fill="${secret ? "#c3c9d6" : "#2d3f73"}">${secret ? T(`${g}학년 코스 시크릿 카드`, `Grade ${g} · SECRET CARD`) : T(`${g}학년 코스 완주 · 씰 5 / 5`, `Grade ${g} clear · 5 / 5 seals`)}</text>
 <g${secret ? ` filter="url(#${uid}k)"` : ""}>${chars}</g>
 ${secret ? `<text x="150" y="232" text-anchor="middle" font-family="${font}" font-size="70" fill="#8a93a6" stroke="#151a26" stroke-width="4" paint-order="stroke">?</text>` : ""}
 <g>${[0, 1, 2, 3, 4].map((i) => `<path d="${STAR}" transform="translate(${102 + i * 24} 300) scale(1.25)" fill="${secret ? "#5b6478" : "#ffd43b"}" stroke="${secret ? "#3a4256" : "#6b3f00"}" stroke-width="1"/>`).join("")}</g>
 <rect x="34" y="320" width="232" height="70" rx="12" fill="${secret ? "#2a3042" : "#fffdf5"}" stroke="${secret ? "#5b6478" : m.ring2}" stroke-width="3"/>
 ${secret
-      ? `<text x="150" y="350" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">${g}학년 코스 씰 5장을 모으면</text><text x="150" y="372" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">이 카드가 열려요</text>`
-      : `<text x="150" y="352" text-anchor="middle" font-family="${font}" font-size="24" fill="#2d3f73">${esc(info.nick)}</text><text x="150" y="376" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6b7290">#${esc(info.id || "----")}${info.date ? ` · ${esc(info.date)} 발급` : ""}</text>`}
+      ? `<text x="150" y="350" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">${T(`${g}학년 코스 씰 5장을 모으면`, `Collect all 5 Grade ${g} seals`)}</text><text x="150" y="372" text-anchor="middle" font-family="${font}" font-size="15" fill="#c3c9d6">${T("이 카드가 열려요", "to unlock this card")}</text>`
+      : `<text x="150" y="352" text-anchor="middle" font-family="${font}" font-size="24" fill="#2d3f73">${esc(info.nick)}</text><text x="150" y="376" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#6b7290">#${esc(info.id || "----")}${info.date ? T(` · ${esc(info.date)} 발급`, ` · issued ${esc(info.date)}`) : ""}</text>`}
 <text x="276" y="404" text-anchor="end" font-family="sans-serif" font-size="8" font-weight="700" fill="${secret ? "#fff" : "#2d3f73"}" opacity=".55">JUMPROPE CHALLENGE · ${g} / 6</text>
 </svg>`;
   }

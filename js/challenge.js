@@ -32,7 +32,7 @@
   const sadTone = () => [392, 330, 262].forEach((f, i) => beep(f, 0.22, 0.16, "triangle", i * 0.18));
   function say(text) {
     if (!soundOn || !("speechSynthesis" in window)) return;
-    try { const u = new SpeechSynthesisUtterance(text); u.lang = "ko-KR"; u.rate = 1.1; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
+    try { const en = window.I18N && window.I18N.lang === "en"; const u = new SpeechSynthesisUtterance(en ? window.I18N.t(text) : text); u.lang = en ? "en-US" : "ko-KR"; u.rate = 1.1; speechSynthesis.cancel(); speechSynthesis.speak(u); } catch (e) {}
   }
 
   // ---------- 카메라·녹화 ----------

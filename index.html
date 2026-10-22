@@ -114,6 +114,7 @@ h1,h2,h3{margin:0;font-weight:400;text-wrap:balance}
 .cell svg{width:100%;max-width:120px;display:block;filter:drop-shadow(0 3px 0 #0002)}
 .cell small{font-size:12px;color:var(--muted);text-align:center;line-height:1.25;font-family:var(--font-ui)}
 .cell.next::after{content:"도전!";position:absolute;top:0;right:2%;background:linear-gradient(180deg,var(--orange1),var(--orange2));color:#fff;font-family:var(--font-ui);font-size:12px;border-radius:999px;padding:0 7px;border:2px solid var(--orange-dk);animation:bob 1s ease-in-out infinite}
+html[lang="en"] .cell.next::after{content:"GO!"}
 @keyframes bob{50%{transform:translateY(-3px)}}
 .cell.hide{display:none}
 .course.locked .cells{opacity:.6}
@@ -540,6 +541,7 @@ body.has-nav .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
     <div class="row"><span class="muted">별명</span><b id="setNick" style="font-family:var(--font-ui);font-weight:400;font-size:17px"></b><button class="btn small ghost" id="setReroll">별명·캐릭터 바꾸기</button></div>
     <div class="row" id="setGrade"><span class="muted">학년</span></div>
     <div class="row" id="setLevel"><span class="muted">난이도</span></div>
+    <div class="row" id="setLang"><span class="muted">언어</span></div>
     <p class="muted" style="margin:0;font-size:13px">같은 학년이어도 실력이 다르니까, 퀘스트 목표 개수를 하(쉽게)·중(보통)·상(어렵게)으로 맞춰. 이미 받은 씰은 그대로야.</p>
     <div class="row"><span class="muted">소리</span><button class="chip" id="setSound" aria-pressed="true">켜짐</button></div>
     <div class="row"><button class="btn small ghost" id="safetyAgain">안전 수칙 다시 보기</button></div>
@@ -561,6 +563,7 @@ body.has-nav .wrap{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
   <button data-pane="settings"><span aria-hidden="true">⚙️</span>설정</button>
 </nav>
 
+<script src="js/i18n.js"></script>
 <script src="js/vendor/qrcode.js"></script>
 <script src="js/seals.js"></script>
 <script src="js/identity.js"></script>

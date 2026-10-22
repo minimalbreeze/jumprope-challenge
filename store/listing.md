@@ -66,3 +66,61 @@ How to try it without jumping rope:
 2. Tap "퀘스트 도전!" → check the 6 safety items → "카메라 켜기" → START.
 3. Prop the phone up and stand inside the dashed box on screen (whole body visible); the countdown starts automatically and jumping in place is counted.
 4. Free practice (자유 연습) on the home screen works the same way without seals.
+
+---
+
+# English (U.S.) — App Store Connect 에서 "영어(미국)" 언어를 추가하고 붙여넣기
+
+## Name (30)
+Jump Rope Grade Challenge
+
+## Subtitle (30)
+Beat quests, collect seals
+
+## Promotional Text (170)
+Prop up your phone and the AI coach counts every jump! Beat grade courses, collect 30 cute seals and secret cards, and become the Jump Rope King.
+
+## Description
+A jump rope quest game for elementary school kids.
+Just prop up your phone and jump inside the box on screen — the AI coach counts your jumps and, when you're done, tells you what went well and how to practice.
+
+■ Beat quests, collect seals
+· 6 grade courses from Grade 1 to Grade 6, with 5 stages each
+· Every stage you clear gives you a different character seal (30 in all)
+· Clear a whole grade for a secret card — collect all 30 for the Master Card!
+· Choose Easy, Normal or Hard in Settings to match each child's skill
+
+■ AI coach
+· Watches your body through the camera and counts jumps automatically
+· Checks your rhythm, so a little phone shake won't add fake jumps
+· Combo every 5 jumps, and Fever Time from 10 in a row!
+· After each try: your video plus what went well, what to fix, and a drill to practice
+
+■ Video Review
+· Did the rope really go under? Family and friends decide by watching the replay — tap "Good" or "No count", just like a video review in sports
+
+■ Free Practice
+· 30 sec, 1 min, or as long as you like — no seals, just beat your own best
+
+■ For the whole family
+· Add brothers and sisters separately, each with their own album
+· Show off with a brag card and a verified share link
+
+■ Peace of mind
+· No sign-up, no login, no ads
+· Video is analyzed only on the device and never sent anywhere
+· Safety checklist before the first try
+· Korean and English — follows your phone's language, changeable in Settings
+
+## Keywords (100)
+jump rope,skipping,kids,exercise,fitness,PE,quest,stickers,seals,counter,home workout,coach,family
+
+## Support URL
+https://minimalbreeze.github.io/jumprope-challenge/support.html#en
+
+## Privacy Policy URL (같은 주소, 아래쪽에 영어)
+https://minimalbreeze.github.io/jumprope-challenge/privacy.html
+
+## Screenshots
+- 6.9인치: store/screenshots/en/ (1320×2868)
+- 6.3인치: store/screenshots/en-6.3/ (1206×2622)
